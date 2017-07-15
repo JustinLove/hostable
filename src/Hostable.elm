@@ -1,5 +1,6 @@
 import Deserialize
-import Config exposing (config)
+import TwitchId
+import UserList
 
 import Html
 import Http
@@ -20,7 +21,7 @@ main = Html.program
   }
 
 init : (Model, Cmd Msg)
-init = (Model [], fetchUsersIds config.users)
+init = (Model [], fetchUsersIds UserList.users)
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -33,7 +34,7 @@ update msg model =
 
 view : Model -> Html.Html msg
 view model =
-  Html.div [] [ Html.text (fetchUsersUrl config.users)]
+  Html.div [] [ Html.text (fetchUsersUrl UserList.users)]
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -48,7 +49,7 @@ fetchUsersIds users =
     { method = "GET"
     , headers =
       [ Http.header "Accept" "application/vnd.twitchtv.v5+json"
-      , Http.header "Client-ID" config.client_id
+      , Http.header "Client-ID" TwitchId.clientId
       ]
     , url = fetchUsersUrl users
     , body = Http.emptyBody

@@ -1,0 +1,7 @@
+module UserList exposing (users)
+
+users =
+  [ "Vulcan_210"
+  , "DoubleFine"
+  ]
+
