@@ -1,14 +1,10 @@
 import Deserialize exposing (LiveStream)
 import TwitchId
 import UserList
+import View exposing (Model)
 
 import Html
 import Http
-
-type alias Model =
-  { userIds : List String
-  , liveStreams : List LiveStream
-  }
 
 type Msg
   = Users (Result Http.Error (List String))
@@ -18,7 +14,7 @@ main = Html.program
   { init = init
   , update = update
   , subscriptions = subscriptions
-  , view = view
+  , view = View.view
   }
 
 init : (Model, Cmd Msg)
@@ -37,10 +33,6 @@ update msg model =
     Streams (Err error) ->
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
-
-view : Model -> Html.Html msg
-view model =
-  Html.div [] [ Html.text (fetchStreamsUrl model.userIds)]
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
