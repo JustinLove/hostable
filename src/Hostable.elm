@@ -1,8 +1,16 @@
+import Deserialize
+import Config exposing (config)
+
 import Html
+import Http
 
 type alias Model =
   {
+    userIds : List String
   }
+
+type Msg =
+  Users (Result Http.Error (List String))
 
 main = Html.program
   { init = init
@@ -12,16 +20,40 @@ main = Html.program
   }
 
 init : (Model, Cmd Msg)
-init = ({}, Cmd.none)
-
-type Msg = Nothing
+init = (Model [], fetchUsersIds config.users)
 
 update: Msg -> Model -> (Model, Cmd Msg)
-update msg model = (model, Cmd.none)
+update msg model =
+  case msg of
+    Users (Ok ids) ->
+      ({model | userIds = ids}, Cmd.none)
+    Users (Err error) ->
+      { e = Debug.log "fetch error" error
+      , r = (model, Cmd.none)}.r
 
 view : Model -> Html.Html msg
 view model =
-  Html.div [] []
+  Html.div [] [ Html.text (fetchUsersUrl config.users)]
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
+
+fetchUsersUrl : List String -> String
+fetchUsersUrl users =
+  "https://api.twitch.tv/kraken/users?login=" ++ (String.join "," users)
+
+fetchUsersIds : List String -> Cmd Msg
+fetchUsersIds users =
+  Http.send Users <| Http.request
+    { method = "GET"
+    , headers =
+      [ Http.header "Accept" "application/vnd.twitchtv.v5+json"
+      , Http.header "Client-ID" config.client_id
+      ]
+    , url = fetchUsersUrl users
+    , body = Http.emptyBody
+    , expect = Http.expectJson Deserialize.users
+    , timeout = Nothing
+    , withCredentials = False
+    }
+
