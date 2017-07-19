@@ -28,18 +28,16 @@ view model =
 streamView : LiveStream -> Html msg
 streamView stream =
   li [ class "stream" ]
-   [ a [ href stream.url ]
-      [ img [ class "preview", src stream.preview, width 239, height 134 ] []
-      , div [ class "info" ]
-        [ img [ class "game-image", src <| gameImageUrl stream.game, width 38, height 52, title stream.game ] []
-        , div [ class "info-text" ]
-          [ p [ class "title" ] [ text stream.status]
-          , p [ class "channel" ] [ text stream.displayName]
-          , p [ class "game-text" ] [ text stream.game]
-          ]
+    [ a [ href stream.url ] [ img [ class "preview", src stream.preview, width 239, height 134 ] [] ]
+    , div [ class "info" ]
+      [ img [ class "game-image", src <| gameImageUrl stream.game, width 38, height 52, title stream.game ] []
+      , div [ class "info-text" ]
+        [ p [ class "title" ] [ text stream.status]
+        , input [ class "channel", readonly True, value ("/host " ++ stream.displayName)] []
+        , p [ class "game-text" ] [ text stream.game]
         ]
       ]
-   ]
+    ]
 
 gameImageUrl : String -> String
 gameImageUrl game =
