@@ -2,6 +2,7 @@ import Deserialize exposing (LiveStream)
 import TwitchId
 import UserList
 import View exposing (Model)
+import Harbor
 
 import Html
 import Http
@@ -35,8 +36,7 @@ update msg model =
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
     UI (View.HostClicked controlId) ->
-      { e = Debug.log "clicked" controlId
-      , r = (model, Cmd.none)}.r
+      (model, Harbor.select controlId)
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none

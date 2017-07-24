@@ -13,6 +13,14 @@
 
 <script type="text/javascript">
   var app = Elm.Main.fullscreen()
+
+  app.ports.select.subscribe(function(id) {
+    setTimeout(function() {
+      var el = document.getElementById(id)
+      el.focus()
+      el.select()
+    }, 50)
+  })
 </script>
 
 </html>
