@@ -74,7 +74,7 @@ commentsForStream userName users =
 
 commentIfMatch : String -> (String, List String) -> Maybe (List String)
 commentIfMatch userName (name, comments) =
-  if name == userName then
+  if (String.toLower name) == (String.toLower userName) then
     Just comments
   else
     Nothing
