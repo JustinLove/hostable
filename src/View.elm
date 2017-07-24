@@ -1,6 +1,7 @@
 module View exposing (Model, view)
 
 import Deserialize exposing (LiveStream)
+import UserList
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -35,6 +36,7 @@ streamView stream =
         [ p [ class "title", title stream.status ] [ text stream.status]
         , input [ class "channel", readonly True, value ("/host " ++ stream.displayName)] []
         , p [ class "game-text" ] [ text stream.game]
+        , p [ ] (List.map text <| commentsForStream stream.displayName UserList.users)
         ]
       ]
     ]
@@ -42,3 +44,16 @@ streamView stream =
 gameImageUrl : String -> String
 gameImageUrl game =
   "https://static-cdn.jtvnw.net/ttv-boxart/" ++ game ++ "-138x190.jpg"
+
+commentsForStream : String -> List (String, List String) -> List String
+commentsForStream userName users =
+  List.filterMap (commentIfMatch userName) users
+    |> List.head
+    |> Maybe.withDefault []
+
+commentIfMatch : String -> (String, List String) -> Maybe (List String)
+commentIfMatch userName (name, comments) =
+  if name == userName then
+    Just comments
+  else
+    Nothing
