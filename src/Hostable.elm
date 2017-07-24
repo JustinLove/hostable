@@ -18,7 +18,7 @@ main = Html.program
   }
 
 init : (Model, Cmd Msg)
-init = (Model [] [], fetchUsersIds UserList.users)
+init = (Model [] [], fetchUsersIds <| List.map Tuple.first UserList.users)
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
