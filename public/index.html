@@ -15,11 +15,16 @@
   var app = Elm.Main.fullscreen()
 
   app.ports.select.subscribe(function(id) {
-    setTimeout(function() {
-      var el = document.getElementById(id)
-      el.focus()
-      el.select()
-    }, 50)
+    var el = document.getElementById(id)
+    el.focus()
+    el.select()
+    try {
+      if (!document.execCommand('copy')) {
+        console.warn("copy failed")
+      }
+    } catch (err) {
+      console.error("copy threw", err)
+    }
   })
 </script>
 
