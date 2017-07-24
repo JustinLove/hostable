@@ -9,12 +9,13 @@ import Http
 type Msg
   = Users (Result Http.Error (List String))
   | Streams (Result Http.Error (List LiveStream))
+  | UI (View.Msg)
 
 main = Html.program
   { init = init
   , update = update
   , subscriptions = subscriptions
-  , view = View.view
+  , view = (\model -> Html.map UI (View.view model))
   }
 
 init : (Model, Cmd Msg)
@@ -32,6 +33,9 @@ update msg model =
       ({model | liveStreams = streams}, Cmd.none)
     Streams (Err error) ->
       { e = Debug.log "stream fetch error" error
+      , r = (model, Cmd.none)}.r
+    UI (View.HostClicked controlId) ->
+      { e = Debug.log "clicked" controlId
       , r = (model, Cmd.none)}.r
 
 subscriptions : Model -> Sub Msg
