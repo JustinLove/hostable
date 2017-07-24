@@ -17,6 +17,16 @@ css = """
 .info { display: flex; overflow-x: hidden; }
 .game-image { flex-shrink: 0; margin-right: 0.5em; }
 .info-text p { margin: 0.2em; font-size: 0.8em; white-space: nowrap; }
+.comments { list-style-type: none; padding-left: 0;}
+.comments li {
+  display: inline-block;
+  margin: 0.2em;
+  padding-left: 0.2em;
+  padding-right: 0.2em;
+  color: white;
+  background-color: grey;
+  border-radius: 0.2em;
+}
 """
 
 view : Model -> Html msg
@@ -35,8 +45,9 @@ streamView stream =
       , div [ class "info-text" ]
         [ p [ class "title", title stream.status ] [ text stream.status]
         , input [ class "channel", readonly True, value ("/host " ++ stream.displayName)] []
-        , p [ class "game-text" ] [ text stream.game]
-        , p [ ] (List.map text <| commentsForStream stream.displayName UserList.users)
+        , ul [ class "comments" ]
+          (List.map (li [] << List.singleton << text)
+            <| commentsForStream stream.displayName UserList.users)
         ]
       ]
     ]
