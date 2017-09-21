@@ -8,6 +8,8 @@ Built using [Elm](http://elm-lang.org/)
 
 The project uses `src/UserList.elm` to define the list of user names. This file is not part of the repo, but `src/UserList.elm.example` has a format example.
 
+A [Twitch Client-ID](https://dev.twitch.tv/docs/authentication#registration) is required to make API calls. This is defined in `src/TwtichId.elm`. This file is not part of of the repo, but `src/TwitchId.elm.example` can be copied and edited to provide your client id.
+
 My build command:
 
 > elm-make src/Hostable.elm --output public/hostable.js
