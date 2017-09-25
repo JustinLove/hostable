@@ -1,4 +1,4 @@
-module View exposing (Model, Msg(..), view)
+module View exposing (Msg(..), view)
 
 import Deserialize exposing (User, LiveStream)
 import UserList
@@ -6,11 +6,6 @@ import UserList
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events
-
-type alias Model =
-  { users : List User
-  , liveStreams : List LiveStream
-  }
 
 type Msg
   = HostClicked String
@@ -33,7 +28,7 @@ css = """
 }
 """
 
-view : Model -> Html Msg
+--view : Model -> Html Msg
 view model =
   div []
     [ node "style" [] [ text css ]
