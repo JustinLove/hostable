@@ -51,7 +51,6 @@ fetchUsers users =
   Http.send Users <| Http.request
     { method = "GET"
     , headers =
-      --[ Http.header "Accept" "application/vnd.twitchtv.v5+json"
       [ Http.header "Client-ID" TwitchId.clientId
       ]
     , url = fetchUsersUrl users
@@ -63,15 +62,14 @@ fetchUsers users =
 
 fetchStreamsUrl : List String -> String
 fetchStreamsUrl userIds =
-  "https://api.twitch.tv/kraken/streams?channel=" ++ (String.join "," userIds)
+  "https://api.twitch.tv/helix/streams?type=live&first=100&user_id=" ++ (String.join "&user_id=" userIds)
 
 fetchStreams : List String -> Cmd Msg
 fetchStreams userIds =
   Http.send Streams <| Http.request
     { method = "GET"
     , headers =
-      [ Http.header "Accept" "application/vnd.twitchtv.v5+json"
-      , Http.header "Client-ID" TwitchId.clientId
+      [ Http.header "Client-ID" TwitchId.clientId
       ]
     , url = fetchStreamsUrl userIds
     , body = Http.emptyBody
