@@ -3,6 +3,7 @@ module View exposing (Msg(..), view)
 import Deserialize exposing (User, LiveStream)
 import UserList
 
+import Regex
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events
@@ -47,21 +48,21 @@ view model =
 streamView : LiveStream -> Html Msg
 streamView stream =
   li [ class "stream" ]
-    [ a [ href stream.url ] [ img [ class "preview", src stream.preview, width 239, height 134 ] [] ]
+    [ a [ href stream.userId ] [ img [ class "preview", src (thumbnailUrl stream.thumbnailUrl), width 239, height 134 ] [] ]
     , div [ class "info" ]
-      [ img [ class "game-image", src <| gameImageUrl stream.game, width 38, height 52, title stream.game ] []
+      [ img [ class "game-image", src <| gameImageUrl stream.gameId, width 38, height 52, title stream.gameId ] []
       , div [ class "info-text" ]
-        [ p [ class "title", title stream.status ] [ text stream.status]
+        [ p [ class "title", title stream.title ] [ text stream.title]
         , input
           [ class "channel"
-          , id ("host-" ++ stream.displayName)
-          , Html.Events.onClick (HostClicked ("host-" ++ stream.displayName))
+          , id ("host-" ++ stream.userId)
+          , Html.Events.onClick (HostClicked ("host-" ++ stream.userId))
           , readonly True
-          , value ("/host " ++ stream.displayName)
+          , value ("/host " ++ stream.userId)
           ] []
         , ul [ class "comments" ]
           (List.map (li [] << List.singleton << text)
-            <| commentsForStream stream.displayName UserList.users)
+            <| commentsForStream stream.userId UserList.users)
         ]
       ]
     ]
@@ -69,6 +70,11 @@ streamView stream =
 gameImageUrl : String -> String
 gameImageUrl game =
   "https://static-cdn.jtvnw.net/ttv-boxart/" ++ game ++ "-138x190.jpg"
+
+thumbnailUrl : String -> String
+thumbnailUrl =
+  Regex.replace Regex.All (Regex.regex "\\{width\\}") (\_ -> "320")
+  >> Regex.replace Regex.All (Regex.regex "\\{height\\}") (\_ -> "180")
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =
