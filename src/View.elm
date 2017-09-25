@@ -42,30 +42,36 @@ body {
 view model =
   div []
     [ node "style" [] [ text css ]
-    , ul [ id "streams" ] <| List.map streamView model.liveStreams
+    , ul [ id "streams" ] <| List.map (streamView model) model.liveStreams
     ]
 
-streamView : LiveStream -> Html Msg
-streamView stream =
+streamView : Model -> LiveStream -> Html Msg
+streamView model stream =
+  let name = displayNameFor model.users stream in
   li [ class "stream" ]
-    [ a [ href stream.userId ] [ img [ class "preview", src (thumbnailUrl stream.thumbnailUrl), width 239, height 134 ] [] ]
+    [ a [ href ("https://twitch.tv/"++name) ] [ img [ class "preview", src (thumbnailUrl stream.thumbnailUrl), width 239, height 134 ] [] ]
     , div [ class "info" ]
       [ img [ class "game-image", src <| gameImageUrl stream.gameId, width 38, height 52, title stream.gameId ] []
       , div [ class "info-text" ]
         [ p [ class "title", title stream.title ] [ text stream.title]
         , input
           [ class "channel"
-          , id ("host-" ++ stream.userId)
-          , Html.Events.onClick (HostClicked ("host-" ++ stream.userId))
+          , id ("host-" ++ name)
+          , Html.Events.onClick (HostClicked ("host-" ++ name))
           , readonly True
-          , value ("/host " ++ stream.userId)
+          , value ("/host " ++ name)
           ] []
         , ul [ class "comments" ]
           (List.map (li [] << List.singleton << text)
-            <| commentsForStream stream.userId UserList.users)
+            <| commentsForStream name UserList.users)
         ]
       ]
     ]
+
+displayNameFor : List User -> LiveStream -> String
+displayNameFor users stream =
+  List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users |> List.head |> Maybe.withDefault "unknown"
+
 
 gameImageUrl : String -> String
 gameImageUrl game =
