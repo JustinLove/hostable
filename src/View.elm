@@ -1,6 +1,6 @@
 module View exposing (Model, Msg(..), view)
 
-import Deserialize exposing (LiveStream)
+import Deserialize exposing (User, LiveStream)
 import UserList
 
 import Html exposing (..)
@@ -8,7 +8,7 @@ import Html.Attributes exposing (..)
 import Html.Events
 
 type alias Model =
-  { userIds : List String
+  { users : List User
   , liveStreams : List LiveStream
   }
 

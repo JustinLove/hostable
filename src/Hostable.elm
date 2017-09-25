@@ -1,4 +1,4 @@
-import Deserialize exposing (LiveStream)
+import Deserialize exposing (User, LiveStream)
 import TwitchId
 import UserList
 import View exposing (Model)
@@ -8,7 +8,7 @@ import Html
 import Http
 
 type Msg
-  = Users (Result Http.Error (List String))
+  = Users (Result Http.Error (List User))
   | Streams (Result Http.Error (List LiveStream))
   | UI (View.Msg)
 
@@ -20,13 +20,13 @@ main = Html.program
   }
 
 init : (Model, Cmd Msg)
-init = (Model [] [], fetchUsersIds <| List.map Tuple.first UserList.users)
+init = (Model [] [], fetchUsers <| List.map Tuple.first UserList.users)
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Users (Ok ids) ->
-      ({model | userIds = ids}, fetchStreams ids)
+    Users (Ok users) ->
+      ({model | users = users}, fetchStreams <| List.map .id users)
     Users (Err error) ->
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
@@ -44,15 +44,15 @@ subscriptions model = Sub.none
 
 fetchUsersUrl : List String -> String
 fetchUsersUrl users =
-  "https://api.twitch.tv/kraken/users?login=" ++ (String.join "," users)
+  "https://api.twitch.tv/helix/users?login=" ++ (String.join "&login=" users)
 
-fetchUsersIds : List String -> Cmd Msg
-fetchUsersIds users =
+fetchUsers : List String -> Cmd Msg
+fetchUsers users =
   Http.send Users <| Http.request
     { method = "GET"
     , headers =
-      [ Http.header "Accept" "application/vnd.twitchtv.v5+json"
-      , Http.header "Client-ID" TwitchId.clientId
+      --[ Http.header "Accept" "application/vnd.twitchtv.v5+json"
+      [ Http.header "Client-ID" TwitchId.clientId
       ]
     , url = fetchUsersUrl users
     , body = Http.emptyBody

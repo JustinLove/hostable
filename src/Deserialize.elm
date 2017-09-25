@@ -1,37 +1,35 @@
-module Deserialize exposing (LiveStream, users, liveStreams)
+module Deserialize exposing (User, LiveStream, users, liveStreams)
 
 import Json.Decode exposing (..)
 
-{-
-   "_total": 2,
-   "users": [
-      {
-         "_id": "44322889",
-         "bio": "Just a gamer playing games and chatting. :)",
-         "created_at": "2013-06-03T19:12:02.580593Z",
-         "display_name": "dallas",
-         "logo": "https://static-cdn.jtvnw.net/jtv_user_pictures/dallas-profile_image-1a2c906ee2c35f12-300x300.png",
-         "name": "dallas",
-         "type": "staff",
-         "updated_at": "2017-02-09T16:32:06.784398Z"
-      },
-      {
-         "_id": "129454141",
-         "bio": null,
-         "created_at": "2016-07-13T14:40:42.398257Z",
-         "display_name": "dallasnchains",
-         "logo": null,
-         "name": "dallasnchains",
-         "type": "user",
-         "updated_at": "2017-02-04T14:32:38.626459Z"
-      }
-   ]
--}
+{-"data":[{
+   "id":"44322889",
+   "login":"dallas",
+   "display_name":"dallas",
+   "type":"staff",
+   "broadcaster_type":"",
+   "description":"Just a gamer playing games and chatting. :)",
+   "profile_image_url":"https://static-cdn.jtvnw.net/jtv_user_pictures/dallas-profile_image-1a2c906ee2c35f12-300x300.png",
+   "offline_image_url":"https://static-cdn.jtvnw.net/jtv_user_pictures/dallas-channel_offline_image-1a2c906ee2c35f12-1920x1080.png",
+   "view_count":191836881,
+   "email":"login@provider.com"
+}]-}
 
-users : Decoder (List String)
+
+type alias User =
+  { id : String
+  , displayName : String
+  }
+
+users : Decoder (List User)
 users =
-  field "users" (list (field "_id" string))
+  field "data" (list user)
 
+user : Decoder User
+user =
+  map2 User
+    (field "id" string)
+    (field "display_name" string)
 
 {-
    "_total": 1295,
