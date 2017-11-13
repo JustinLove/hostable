@@ -1,6 +1,6 @@
 module View exposing (Msg(..), view)
 
-import Deserialize exposing (User, LiveStream)
+import Deserialize exposing (User, LiveStream, Game)
 import UserList
 
 import Regex
@@ -47,11 +47,14 @@ view model =
 
 --streamView : Model -> LiveStream -> Html Msg
 streamView model stream =
-  let name = displayNameFor model.users stream in
+  let
+    name = displayNameFor model.users stream
+    game = gameFor model.games stream
+  in
   li [ class "stream" ]
-    [ a [ href ("https://twitch.tv/"++name) ] [ img [ class "preview", src (thumbnailUrl stream.thumbnailUrl), width 239, height 134 ] [] ]
+    [ a [ href ("https://twitch.tv/"++name) ] [ img [ class "preview", src (imageTemplateUrl 320 180 stream.thumbnailUrl), width 239, height 134 ] [] ]
     , div [ class "info" ]
-      [ img [ class "game-image", src <| gameImageUrl stream.gameId, width 38, height 52, title stream.gameId ] []
+      [ displayBoxArt game
       , div [ class "info-text" ]
         [ p [ class "title", title stream.title ] [ text stream.title]
         , input
@@ -70,17 +73,36 @@ streamView model stream =
 
 displayNameFor : List User -> LiveStream -> String
 displayNameFor users stream =
-  List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users |> List.head |> Maybe.withDefault "unknown"
+  List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users
+   |> List.head
+   |> Maybe.withDefault "unknown"
 
+gameFor : List Game -> LiveStream -> Maybe Game
+gameFor games stream =
+  List.filterMap (\g -> if g.id == stream.gameId then Just g else Nothing) games
+   |> List.head
 
-gameImageUrl : String -> String
-gameImageUrl game =
-  "https://static-cdn.jtvnw.net/ttv-boxart/" ++ game ++ "-138x190.jpg"
+displayBoxArt : Maybe Game -> Html Msg
+displayBoxArt mgame =
+  case mgame of
+    Just game ->
+      img
+        [ class "game-image"
+        , src <| imageTemplateUrl 38 52 game.boxArtUrl
+        , width 38
+        , height 52
+        , title game.name
+        ] []
+    Nothing ->
+      div
+        [ class "game-image"
+        , style [ ("width", "38px"), ("height", "52px") ]
+        ] []
 
-thumbnailUrl : String -> String
-thumbnailUrl =
-  Regex.replace Regex.All (Regex.regex "\\{width\\}") (\_ -> "320")
-  >> Regex.replace Regex.All (Regex.regex "\\{height\\}") (\_ -> "180")
+imageTemplateUrl : Int -> Int -> String -> String
+imageTemplateUrl w h =
+  Regex.replace Regex.All (Regex.regex "\\{width\\}") (\_ -> toString w)
+  >> Regex.replace Regex.All (Regex.regex "\\{height\\}") (\_ -> toString h)
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =
