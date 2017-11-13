@@ -27,6 +27,7 @@ type alias Model =
   , liveStreams : List LiveStream
   , pendingUsers : List String
   , pendingRequests : List (Cmd Msg)
+  , outstandingRequests : Int
   }
 
 main = Html.program
@@ -44,6 +45,7 @@ init =
     , liveStreams = []
     , pendingUsers = List.map Tuple.first UserList.users
     , pendingRequests = []
+    , outstandingRequests = 0
     }
   , Cmd.none
   )
@@ -66,8 +68,6 @@ update msg model =
     Streams (Ok streams) ->
       ( { model
         | liveStreams = List.append model.liveStreams streams
-        , pendingRequests = List.append model.pendingRequests
-          [fetchGames <| Set.toList <| Set.fromList <| List.map .gameId streams]
         }
       , Cmd.none)
     Streams (Err error) ->
@@ -80,10 +80,17 @@ update msg model =
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
     Response subMsg ->
-      update subMsg model
+      let
+        (m2, c2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
+      in
+        (fetchNextGameBatch requestLimit m2, c2)
     NextRequest _ ->
       case model.pendingRequests of
-        next :: rest -> ({model | pendingRequests = rest}, next)
+        next :: rest ->
+          ( { model
+            | pendingRequests = rest
+            , outstandingRequests = model.outstandingRequests + (if next == Cmd.none then 0 else 1)
+            }, next)
         _ -> (model, Cmd.none)
     UI (View.HostClicked controlId) ->
       (model, Harbor.select controlId)
@@ -102,6 +109,19 @@ fetchNextUserBatch batch model =
   , pendingRequests = List.append model.pendingRequests
     [fetchUsers <| List.take batch model.pendingUsers]
   }
+
+fetchNextGameBatch : Int -> Model -> Model
+fetchNextGameBatch batch model =
+  if model.outstandingRequests == 0 && List.isEmpty model.pendingRequests then
+    let known = Set.fromList <| List.map .id model.games
+        required = Set.fromList <| List.map .gameId model.liveStreams
+        missing = Set.toList <| Set.diff required known
+    in
+    { model
+    | pendingRequests = List.append model.pendingRequests
+      [fetchGames <| List.take batch missing]
+    }
+  else model
 
 fetchUsersUrl : List String -> String
 fetchUsersUrl users =
