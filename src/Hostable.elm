@@ -8,6 +8,7 @@ import Html
 import Http
 import Time
 import Set
+import Json.Decode
 
 requestLimit = 100
 requestRate = 5
@@ -16,6 +17,7 @@ type Msg
   = Users (Result Http.Error (List User))
   | Streams (Result Http.Error (List LiveStream))
   | Games (Result Http.Error (List Game))
+  | Response Msg
   | NextRequest Time.Time
   | UI (View.Msg)
 
@@ -77,6 +79,8 @@ update msg model =
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
+    Response subMsg ->
+      update subMsg model
     NextRequest _ ->
       case model.pendingRequests of
         next :: rest -> ({model | pendingRequests = rest}, next)
@@ -108,17 +112,7 @@ fetchUsers users =
   if List.isEmpty users then
     Cmd.none
   else
-    Http.send Users <| Http.request
-      { method = "GET"
-      , headers =
-        [ Http.header "Client-ID" TwitchId.clientId
-        ]
-      , url = fetchUsersUrl users
-      , body = Http.emptyBody
-      , expect = Http.expectJson Deserialize.users
-      , timeout = Nothing
-      , withCredentials = False
-      }
+    helix Users (fetchUsersUrl users) Deserialize.users
 
 fetchStreamsUrl : List String -> String
 fetchStreamsUrl userIds =
@@ -129,17 +123,7 @@ fetchStreams userIds =
   if List.isEmpty userIds then
     Cmd.none
   else
-    Http.send Streams <| Http.request
-      { method = "GET"
-      , headers =
-        [ Http.header "Client-ID" TwitchId.clientId
-        ]
-      , url = fetchStreamsUrl userIds
-      , body = Http.emptyBody
-      , expect = Http.expectJson Deserialize.liveStreams
-      , timeout = Nothing
-      , withCredentials = False
-      }
+    helix Streams (fetchStreamsUrl userIds) Deserialize.liveStreams
 
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
@@ -150,15 +134,18 @@ fetchGames gameIds =
   if List.isEmpty gameIds then
     Cmd.none
   else
-    Http.send Games <| Http.request
-      { method = "GET"
-      , headers =
-        [ Http.header "Client-ID" TwitchId.clientId
-        ]
-      , url = fetchGamesUrl gameIds
-      , body = Http.emptyBody
-      , expect = Http.expectJson Deserialize.games
-      , timeout = Nothing
-      , withCredentials = False
-      }
+    helix Games (fetchGamesUrl gameIds) Deserialize.games
 
+helix : ((Result Http.Error a) -> Msg) -> String -> Json.Decode.Decoder a -> Cmd Msg
+helix tagger url decoder =
+  Http.send (Response << tagger) <| Http.request
+    { method = "GET"
+    , headers =
+      [ Http.header "Client-ID" TwitchId.clientId
+      ]
+    , url = url
+    , body = Http.emptyBody
+    , expect = Http.expectJson decoder
+    , timeout = Nothing
+    , withCredentials = False
+    }
