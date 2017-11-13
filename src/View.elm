@@ -45,7 +45,7 @@ view model =
     , ul [ id "streams" ] <| List.map (streamView model) model.liveStreams
     ]
 
-streamView : Model -> LiveStream -> Html Msg
+--streamView : Model -> LiveStream -> Html Msg
 streamView model stream =
   let name = displayNameFor model.users stream in
   li [ class "stream" ]
