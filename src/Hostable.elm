@@ -7,6 +7,7 @@ import Harbor
 import Html
 import Http
 import Time
+import Set
 
 requestLimit = 100
 requestRate = 5
@@ -64,7 +65,7 @@ update msg model =
       ( { model
         | liveStreams = List.append model.liveStreams streams
         , pendingRequests = List.append model.pendingRequests
-          [fetchGames <| List.map .gameId streams]
+          [fetchGames <| Set.toList <| Set.fromList <| List.map .gameId streams]
         }
       , Cmd.none)
     Streams (Err error) ->
