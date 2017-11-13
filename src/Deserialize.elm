@@ -1,4 +1,4 @@
-module Deserialize exposing (User, LiveStream, users, liveStreams)
+module Deserialize exposing (User, LiveStream, Game, users, liveStreams, games)
 
 import Json.Decode exposing (..)
 
@@ -54,10 +54,6 @@ user =
    "pagination":{"cursor":"eyJiIjpudWxsLCJhIjp7Ik9mZnNldCI6MjB9fQ=="}
 -}
 
-liveStreams : Decoder (List LiveStream)
-liveStreams =
-  field "data" (list stream)
-
 type alias LiveStream =
   { channelId : String
   , userId : String
@@ -65,6 +61,10 @@ type alias LiveStream =
   , title : String
   , thumbnailUrl : String
   }
+
+liveStreams : Decoder (List LiveStream)
+liveStreams =
+  field "data" (list stream)
 
 stream : Decoder LiveStream
 stream =
@@ -74,3 +74,30 @@ stream =
     (field "game_id" string)
     (field "title" string)
     (field "thumbnail_url" string)
+
+{-"data":
+   [
+      {
+         "id":"493057",
+         "name":"PLAYERUNKNOWN'S BATTLEGROUNDS",
+         "box_art_url":"https://static-cdn.jtvnw.net/ttv-boxart/PLAYERUNKNOWN%27S%20BATTLEGROUNDS-{width}x{height}.jpg"
+      }
+   ]
+-}
+
+type alias Game =
+  { id : String
+  , name : String
+  , boxArtUrl : String
+  }
+
+games : Decoder (List Game)
+games =
+  field "data" (list game)
+
+game : Decoder Game
+game =
+  map3 Game
+    (field "id" string)
+    (field "name" string)
+    (field "box_art_url" string)

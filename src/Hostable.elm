@@ -1,4 +1,4 @@
-import Deserialize exposing (User, LiveStream)
+import Deserialize exposing (User, LiveStream, Game)
 import TwitchId
 import UserList
 import View
@@ -14,11 +14,13 @@ requestRate = 5
 type Msg
   = Users (Result Http.Error (List User))
   | Streams (Result Http.Error (List LiveStream))
+  | Games (Result Http.Error (List Game))
   | NextRequest Time.Time
   | UI (View.Msg)
 
 type alias Model =
   { users : List User
+  , games : List Game
   , liveStreams : List LiveStream
   , pendingUsers : List String
   , pendingRequests : List (Cmd Msg)
@@ -33,11 +35,13 @@ main = Html.program
 
 init : (Model, Cmd Msg)
 init =
-  ( fetchNextUserBatch requestLimit { users = []
+  ( fetchNextUserBatch requestLimit
+    { users = []
+    , games = []
     , liveStreams = []
     , pendingUsers = List.map Tuple.first UserList.users
     , pendingRequests = []
-  }
+    }
   , Cmd.none
   )
 
@@ -57,9 +61,20 @@ update msg model =
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
-      ({model | liveStreams = List.append model.liveStreams streams}, Cmd.none)
+      ( { model
+        | liveStreams = List.append model.liveStreams streams
+        , pendingRequests = List.append model.pendingRequests
+          [fetchGames <| List.map .gameId streams]
+        }
+      , Cmd.none)
     Streams (Err error) ->
       { e = Debug.log "stream fetch error" error
+      , r = (model, Cmd.none)}.r
+    Games (Ok games) ->
+      ({model | games = List.append model.games games}
+      , Cmd.none)
+    Games (Err error) ->
+      { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
     NextRequest _ ->
       case model.pendingRequests of
@@ -124,3 +139,25 @@ fetchStreams userIds =
       , timeout = Nothing
       , withCredentials = False
       }
+
+fetchGamesUrl : List String -> String
+fetchGamesUrl gameIds =
+  "https://api.twitch.tv/helix/games?id=" ++ (String.join "&id=" gameIds)
+
+fetchGames : List String -> Cmd Msg
+fetchGames gameIds =
+  if List.isEmpty gameIds then
+    Cmd.none
+  else
+    Http.send Games <| Http.request
+      { method = "GET"
+      , headers =
+        [ Http.header "Client-ID" TwitchId.clientId
+        ]
+      , url = fetchGamesUrl gameIds
+      , body = Http.emptyBody
+      , expect = Http.expectJson Deserialize.games
+      , timeout = Nothing
+      , withCredentials = False
+      }
+
