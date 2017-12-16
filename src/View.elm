@@ -52,7 +52,9 @@ body {
 view model =
   div []
     [ node "style" [] [ text css ]
-    , header [] [ button [onClick Refresh] [ text "Refresh" ] ]
+    , header []
+      [ button [onClick Refresh] [ text "Refresh" ]
+      ]
     , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
     ]
 

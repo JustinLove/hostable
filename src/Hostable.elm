@@ -117,17 +117,13 @@ fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
   { model
   | pendingUsers = List.drop batch model.pendingUsers
-  , pendingRequests = List.append model.pendingRequests
-    [fetchUsers <| List.take batch model.pendingUsers]
-  }
+  } |> appendRequests [fetchUsers <| List.take batch model.pendingUsers]
 
 fetchNextStreamBatch : Int -> Model -> Model
 fetchNextStreamBatch batch model =
   { model
   | pendingStreams = List.drop batch model.pendingStreams
-  , pendingRequests = List.append model.pendingRequests
-    [fetchStreams <| List.take batch model.pendingStreams]
-  }
+  } |> appendRequests [fetchStreams <| List.take batch model.pendingStreams]
 
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =
@@ -136,11 +132,15 @@ fetchNextGameBatch batch model =
         required = Set.fromList <| List.map .gameId model.liveStreams
         missing = Set.toList <| Set.diff required known
     in
-    { model
-    | pendingRequests = List.append model.pendingRequests
-      [fetchGames <| List.take batch missing]
-    }
+    appendRequests [fetchGames <| List.take batch missing] model
   else model
+
+appendRequests : List (Cmd Msg) -> Model -> Model
+appendRequests cmds model = 
+  { model
+  | pendingRequests = List.append model.pendingRequests
+    <| List.filter (\c -> c /= Cmd.none) cmds
+  }
 
 fetchUsersUrl : List String -> String
 fetchUsersUrl users =
