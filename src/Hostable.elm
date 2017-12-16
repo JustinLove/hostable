@@ -94,6 +94,8 @@ update msg model =
         _ -> (model, Cmd.none)
     UI (View.HostClicked controlId) ->
       (model, Harbor.select controlId)
+    UI (View.Refresh) ->
+      init
 
 subscriptions : Model -> Sub Msg
 subscriptions model =

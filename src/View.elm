@@ -6,11 +6,12 @@ import UserList
 import Regex
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events
+import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
 
 type Msg
   = HostClicked String
+  | Refresh
 
 css = """
 body {
@@ -51,6 +52,7 @@ body {
 view model =
   div []
     [ node "style" [] [ text css ]
+    , header [] [ button [onClick Refresh] [ text "Refresh" ] ]
     , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
     ]
 
