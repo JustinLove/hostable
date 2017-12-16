@@ -20,7 +20,7 @@ requestLimit = 100
 requestRate = 5
 
 type Msg
-  = Loaded (Result String Persist)
+  = Loaded (Maybe Persist)
   | Users (Result Http.Error (List User))
   | Streams (Result Http.Error (List LiveStream))
   | Games (Result Http.Error (List Game))
@@ -62,14 +62,14 @@ init =
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Loaded (Ok state) ->
+    Loaded (Just state) ->
+      let _ = Debug.log "state" state in
       ( { model
         | games = state.games
         --, users = state.users
         }
       , Cmd.none)
-    Loaded (Err message) ->
-      let _ = Debug.log "load error" message in
+    Loaded (Nothing) ->
       (model, Cmd.none)
     Users (Ok users) ->
       { model
@@ -139,8 +139,19 @@ subscriptions model =
         Sub.none
       else
         Time.every (Time.second/requestRate) NextRequest
-    , Harbor.loaded (Loaded << Json.Decode.decodeString Persist.Decode.persist)
+    , Harbor.loaded receiveLoaded
     ]
+
+receiveLoaded : Maybe String -> Msg
+receiveLoaded mstring =
+  mstring
+    |> Maybe.andThen (\string ->
+      string
+       |> Json.Decode.decodeString Persist.Decode.persist
+       |> Result.mapError (Debug.log "persist decode error")
+       |> Result.toMaybe
+      )
+    |> Loaded
 
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =

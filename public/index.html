@@ -34,9 +34,7 @@
   })
 
   var loaded = localStorage.getItem(key)
-  if (loaded) {
-    app.ports.loaded.send(localStorage.getItem(key))
-  }
+  app.ports.loaded.send(loaded)
 </script>
 
 </html>
