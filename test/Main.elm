@@ -19,6 +19,10 @@ all = describe "serialization"
     Encode.user
     Decode.user
     (User "1" "name")
+  , it "roundtrips game" <| roundTrips
+    Encode.game
+    Decode.game
+    (Game "1" "name" "http://example.com")
   ]
 
 roundTrips : (a -> Json.Decode.Value) -> Json.Decode.Decoder a -> a -> Expectation.Expectation
