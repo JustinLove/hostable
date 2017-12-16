@@ -18,8 +18,16 @@ body {
 }
 #streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 200px; padding: 10px; }
+.screen { width: 240px; height: 134px; position: relative; }
+.box-art { position: absolute; bottom: 0; right: 0; }
+.viewers {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  color: rgb(218, 216, 222);
+  margin: 0.1em;
+}
 .info { display: flex; overflow-x: hidden; }
-.game-image { flex-shrink: 0; margin-right: 0.5em; }
 .info-text p { margin: 0.2em; font-size: 0.8em; white-space: nowrap; }
 .channel {
   background-color: rgb(14, 12, 19);
@@ -52,10 +60,15 @@ streamView model stream =
     game = gameFor model.games stream
   in
   li [ class "stream" ]
-    [ a [ href ("https://twitch.tv/"++name) ] [ img [ class "preview", src (imageTemplateUrl 320 180 stream.thumbnailUrl), width 239, height 134 ] [] ]
+    [ a [ href ("https://twitch.tv/"++name) ]
+      [ div [ class "screen" ]
+        [ img [ class "preview", src (imageTemplateUrl 320 180 stream.thumbnailUrl), width 239, height 134 ] []
+        , displayBoxArt game
+        , p [ class "viewers" ] [ text <| toString stream.viewerCount ]
+        ]
+      ]
     , div [ class "info" ]
-      [ displayBoxArt game
-      , div [ class "info-text" ]
+      [ div [ class "info-text" ]
         [ p [ class "title", title stream.title ] [ text stream.title]
         , input
           [ class "channel"
@@ -87,7 +100,7 @@ displayBoxArt mgame =
   case mgame of
     Just game ->
       img
-        [ class "game-image"
+        [ class "box-art"
         , src <| imageTemplateUrl 38 52 game.boxArtUrl
         , width 38
         , height 52
@@ -95,7 +108,7 @@ displayBoxArt mgame =
         ] []
     Nothing ->
       div
-        [ class "game-image"
+        [ class "box-art"
         , style [ ("width", "38px"), ("height", "52px") ]
         ] []
 

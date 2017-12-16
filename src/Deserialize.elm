@@ -59,6 +59,7 @@ type alias LiveStream =
   , userId : String
   , gameId : String
   , title : String
+  , viewerCount: Int
   , thumbnailUrl : String
   }
 
@@ -68,11 +69,12 @@ liveStreams =
 
 stream : Decoder LiveStream
 stream =
-  map5 LiveStream
+  map6 LiveStream
     (field "id" string)
     (field "user_id" string)
     (field "game_id" string)
     (field "title" string)
+    (field "viewer_count" int)
     (field "thumbnail_url" string)
 
 {-"data":
