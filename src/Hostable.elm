@@ -1,3 +1,8 @@
+module Hostable exposing (..)
+
+import Persist exposing (Persist)
+import Persist.Encode exposing (persist)
+import Persist.Decode exposing (persist)
 import Deserialize exposing (User, LiveStream, Game)
 import TwitchId
 import UserList
@@ -9,12 +14,14 @@ import Http
 import Time
 import Set
 import Json.Decode
+import Json.Encode
 
 requestLimit = 100
 requestRate = 5
 
 type Msg
-  = Users (Result Http.Error (List User))
+  = Loaded (Result String Persist)
+  | Users (Result Http.Error (List User))
   | Streams (Result Http.Error (List LiveStream))
   | Games (Result Http.Error (List Game))
   | Response Msg
@@ -55,16 +62,24 @@ init =
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Users (Ok users) ->
+    Loaded (Ok state) ->
       ( { model
-        | users = List.append model.users users
-        , pendingStreams = List.append model.pendingStreams
-          <| List.map .id users
+        | games = state.games
+        --, users = state.users
         }
-        |> fetchNextUserBatch requestLimit
-        |> fetchNextStreamBatch requestLimit
-      , Cmd.none
-      )
+      , Cmd.none)
+    Loaded (Err message) ->
+      let _ = Debug.log "load error" message in
+      (model, Cmd.none)
+    Users (Ok users) ->
+      { model
+      | users = List.append model.users users
+      , pendingStreams = List.append model.pendingStreams
+        <| List.map .id users
+      }
+      |> fetchNextUserBatch requestLimit
+      |> fetchNextStreamBatch requestLimit
+      |> persist
     Users (Err error) ->
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
@@ -78,8 +93,8 @@ update msg model =
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
     Games (Ok games) ->
-      ({model | games = List.append model.games games}
-      , Cmd.none)
+      {model | games = List.append model.games games}
+      |> persist
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
@@ -106,12 +121,26 @@ update msg model =
         }
       , Cmd.none)
 
+persist : Model -> (Model, Cmd Msg)
+persist model =
+  (model, saveState model)
+
+saveState : Model -> Cmd Msg
+saveState model =
+  Persist model.users model.games
+    |> Persist.Encode.persist
+    |> Json.Encode.encode 0
+    |> Harbor.save
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  if List.isEmpty model.pendingRequests then
-    Sub.none
-  else
-    Time.every (Time.second/requestRate) NextRequest
+  Sub.batch
+    [ if List.isEmpty model.pendingRequests then
+        Sub.none
+      else
+        Time.every (Time.second/requestRate) NextRequest
+    , Harbor.loaded (Loaded << Json.Decode.decodeString Persist.Decode.persist)
+    ]
 
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
