@@ -1,6 +1,6 @@
 import Deserialize exposing (User, Game)
-import Decode
-import Encode
+import Persist.Decode
+import Persist.Encode
 
 import Expectation exposing (eql, isTrue, isFalse)
 import Test exposing (it, describe, Test)
@@ -16,12 +16,12 @@ main =
 all : Test
 all = describe "serialization"
   [ it "roundtrips user" <| roundTrips
-    Encode.user
-    Decode.user
+    Persist.Encode.user
+    Persist.Decode.user
     (User "1" "name")
   , it "roundtrips game" <| roundTrips
-    Encode.game
-    Decode.game
+    Persist.Encode.game
+    Persist.Decode.game
     (Game "1" "name" "http://example.com")
   ]
 

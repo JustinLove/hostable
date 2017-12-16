@@ -1,4 +1,4 @@
-module Encode exposing (user, game)
+module Persist.Encode exposing (user, game)
 
 import Deserialize exposing (User, Game)
 
