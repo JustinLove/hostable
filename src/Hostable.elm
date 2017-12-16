@@ -26,6 +26,7 @@ type alias Model =
   , games : List Game
   , liveStreams : List LiveStream
   , pendingUsers : List String
+  , pendingStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   }
@@ -44,6 +45,7 @@ init =
     , games = []
     , liveStreams = []
     , pendingUsers = List.map Tuple.first UserList.users
+    , pendingStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
     }
@@ -54,19 +56,21 @@ update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Users (Ok users) ->
-      (fetchNextUserBatch requestLimit
-        { model
+      ( { model
         | users = List.append model.users users
-        , pendingRequests = List.append model.pendingRequests
-          [fetchStreams <| List.map .id users]
+        , pendingStreams = List.append model.pendingStreams
+          <| List.map .id users
         }
+        |> fetchNextUserBatch requestLimit
+        |> fetchNextStreamBatch requestLimit
       , Cmd.none
       )
     Users (Err error) ->
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
-      ( { model
+      ( fetchNextStreamBatch requestLimit
+        { model
         | liveStreams = List.append model.liveStreams streams
         }
       , Cmd.none)
@@ -95,7 +99,12 @@ update msg model =
     UI (View.HostClicked controlId) ->
       (model, Harbor.select controlId)
     UI (View.Refresh) ->
-      init
+      (fetchNextStreamBatch requestLimit
+        { model
+        | liveStreams = []
+        , pendingStreams = List.map .id model.users
+        }
+      , Cmd.none)
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -110,6 +119,14 @@ fetchNextUserBatch batch model =
   | pendingUsers = List.drop batch model.pendingUsers
   , pendingRequests = List.append model.pendingRequests
     [fetchUsers <| List.take batch model.pendingUsers]
+  }
+
+fetchNextStreamBatch : Int -> Model -> Model
+fetchNextStreamBatch batch model =
+  { model
+  | pendingStreams = List.drop batch model.pendingStreams
+  , pendingRequests = List.append model.pendingRequests
+    [fetchStreams <| List.take batch model.pendingStreams]
   }
 
 fetchNextGameBatch : Int -> Model -> Model
