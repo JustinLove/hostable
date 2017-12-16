@@ -1,4 +1,5 @@
 import Deserialize exposing (User, Game)
+import Persist exposing (Persist)
 import Persist.Decode
 import Persist.Encode
 
@@ -23,6 +24,13 @@ all = describe "serialization"
     Persist.Encode.game
     Persist.Decode.game
     (Game "1" "name" "http://example.com")
+  , it "roundtrips persist" <| roundTrips
+    Persist.Encode.persist
+    Persist.Decode.persist
+    ( Persist
+      [ (User "1" "name") ]
+      [ (Game "1" "name" "http://example.com") ]
+    )
   ]
 
 roundTrips : (a -> Json.Decode.Value) -> Json.Decode.Decoder a -> a -> Expectation.Expectation

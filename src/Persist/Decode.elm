@@ -1,8 +1,15 @@
-module Persist.Decode exposing (user, game)
+module Persist.Decode exposing (persist, user, game)
 
+import Persist exposing (Persist)
 import Deserialize exposing (User, Game)
 
 import Json.Decode exposing (..)
+
+persist : Decoder Persist
+persist =
+  map2 Persist
+    (field "users" (list user))
+    (field "games" (list game))
 
 user : Decoder User
 user =
