@@ -7,6 +7,7 @@ import Regex
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events
+import Html.Keyed as Keyed
 
 type Msg
   = HostClicked String
@@ -50,7 +51,7 @@ body {
 view model =
   div []
     [ node "style" [] [ text css ]
-    , ul [ id "streams" ] <| List.map (streamView model) model.liveStreams
+    , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
     ]
 
 --streamView : Model -> LiveStream -> Html Msg
