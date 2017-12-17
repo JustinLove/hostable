@@ -47,11 +47,10 @@ main = Html.program
 
 init : (Model, Cmd Msg)
 init =
-  ( fetchNextUserBatch requestLimit
-    { users = []
+  ( { users = []
     , games = []
     , liveStreams = []
-    , pendingUsers = List.map Tuple.first UserList.users
+    , pendingUsers = []
     , pendingStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
@@ -59,18 +58,26 @@ init =
   , Cmd.none
   )
 
+desiredUserNames : Set.Set String
+desiredUserNames = Set.fromList <| List.map (Tuple.first >> String.toLower) UserList.users
+
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Loaded (Just state) ->
-      let _ = Debug.log "state" state in
-      ( { model
-        | games = state.games
-        --, users = state.users
-        }
+    Loaded mstate ->
+      ( ( case mstate of
+          Just state ->
+            { model
+            | users = state.users
+            , games = state.games
+            }
+          Nothing ->
+            model
+        )
+        |> resolveLoadedState
+        |> fetchNextUserBatch requestLimit
+        |> fetchNextStreamBatch requestLimit
       , Cmd.none)
-    Loaded (Nothing) ->
-      (model, Cmd.none)
     Users (Ok users) ->
       { model
       | users = List.append model.users users
@@ -152,6 +159,19 @@ receiveLoaded mstring =
        |> Result.toMaybe
       )
     |> Loaded
+
+resolveLoadedState : Model -> Model
+resolveLoadedState model =
+  let
+    currentUsers = List.filter (\u -> Set.member (u.displayName |> String.toLower) desiredUserNames) model.users
+    known = Set.fromList <| List.map (.displayName >> String.toLower) model.users
+    missing = Set.toList <| Set.diff desiredUserNames known
+  in
+    { model
+    | users = currentUsers
+    , pendingUsers = missing
+    , pendingStreams = List.map .id currentUsers
+    }
 
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
