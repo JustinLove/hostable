@@ -55,9 +55,18 @@ view model =
     , header []
       [ button [onClick Refresh] [ text "Refresh" ]
       ]
+    , if List.isEmpty model.missingUsers then
+        text ""
+      else 
+        displayMissingUsers model.missingUsers
     , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
-    , h2 [] [ text "Missing Users" ]
-    , model.missingUsers
+    ]
+
+displayMissingUsers : List String -> Html Msg
+displayMissingUsers missingUsers =
+  div []
+    [ h2 [] [ text "Missing Users" ]
+    , missingUsers
       |> List.intersperse " "
       |> List.map text
       |> p []
