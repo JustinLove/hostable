@@ -36,7 +36,7 @@ body {
   color: rgb(250, 249, 250);
   border: 1px solid #392e5c;
 }
-.comments { list-style-type: none; padding-left: 0;}
+
 .comments li {
   display: inline-block;
   margin: 0.2em;
@@ -56,6 +56,11 @@ view model =
       [ button [onClick Refresh] [ text "Refresh" ]
       ]
     , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
+    , h2 [] [ text "Missing Users" ]
+    , model.missingUsers
+      |> List.intersperse " "
+      |> List.map text
+      |> p []
     ]
 
 --streamView : Model -> LiveStream -> Html Msg

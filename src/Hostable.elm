@@ -32,6 +32,7 @@ type alias Model =
   { users : List User
   , games : List Game
   , liveStreams : List LiveStream
+  , missingUsers : List String
   , pendingUsers : List String
   , pendingStreams : List String
   , pendingRequests : List (Cmd Msg)
@@ -50,6 +51,7 @@ init =
   ( { users = []
     , games = []
     , liveStreams = []
+    , missingUsers = []
     , pendingUsers = []
     , pendingStreams = []
     , pendingRequests = []
@@ -164,14 +166,21 @@ resolveLoadedState : Model -> Model
 resolveLoadedState model =
   let
     currentUsers = List.filter (\u -> Set.member (u.displayName |> String.toLower) desiredUserNames) model.users
-    known = Set.fromList <| List.map (.displayName >> String.toLower) model.users
-    missing = Set.toList <| Set.diff desiredUserNames known
+    missing = missingUsers model
   in
     { model
     | users = currentUsers
+    , missingUsers = missing
     , pendingUsers = missing
     , pendingStreams = List.map .id currentUsers
     }
+
+missingUsers : Model -> List String
+missingUsers model =
+  let
+    known = Set.fromList <| List.map (.displayName >> String.toLower) model.users
+  in
+    Set.toList <| Set.diff desiredUserNames known
 
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
@@ -192,7 +201,8 @@ fetchNextGameBatch batch model =
         required = Set.fromList <| List.map .gameId model.liveStreams
         missing = Set.toList <| Set.diff required known
     in
-    appendRequests [fetchGames <| List.take batch missing] model
+      { model | missingUsers = missingUsers model }
+      |> appendRequests [fetchGames <| List.take batch missing]
   else model
 
 appendRequests : List (Cmd Msg) -> Model -> Model
