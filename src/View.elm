@@ -81,7 +81,7 @@ streamView model stream =
   li [ class "stream" ]
     [ a [ href ("https://twitch.tv/"++name) ]
       [ div [ class "screen" ]
-        [ img [ class "preview", src (imageTemplateUrl 320 180 stream.thumbnailUrl), width 239, height 134 ] []
+        [ img [ class "preview", src ((imageTemplateUrl 320 180 stream.thumbnailUrl) ++ "?" ++ (toString model.previewVersion)), width 239, height 134 ] []
         , displayBoxArt game
         , p [ class "viewers" ] [ text <| toString stream.viewerCount ]
         ]

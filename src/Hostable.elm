@@ -37,6 +37,7 @@ type alias Model =
   , pendingStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
+  , previewVersion : Int
   }
 
 main = Html.program
@@ -56,6 +57,7 @@ init =
     , pendingStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
+    , previewVersion = 0
     }
   , Cmd.none
   )
@@ -127,6 +129,7 @@ update msg model =
         { model
         | liveStreams = []
         , pendingStreams = List.map .id model.users
+        , previewVersion = model.previewVersion + 1
         }
       , Cmd.none)
 
