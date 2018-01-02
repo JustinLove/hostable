@@ -1,4 +1,4 @@
-module Deserialize exposing (User, LiveStream, Game, users, liveStreams, games)
+module Twitch.Deserialize exposing (User, LiveStream, Game, users, liveStreams, games)
 
 import Json.Decode exposing (..)
 

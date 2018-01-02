@@ -3,8 +3,8 @@ module Hostable exposing (..)
 import Persist exposing (Persist)
 import Persist.Encode exposing (persist)
 import Persist.Decode exposing (persist)
-import Deserialize exposing (User, LiveStream, Game)
-import TwitchId
+import Twitch.Deserialize exposing (User, LiveStream, Game)
+import Twitch.Id
 import UserList
 import View
 import Harbor
@@ -224,7 +224,7 @@ fetchUsers users =
   if List.isEmpty users then
     Cmd.none
   else
-    helix Users (fetchUsersUrl users) Deserialize.users
+    helix Users (fetchUsersUrl users) Twitch.Deserialize.users
 
 fetchStreamsUrl : List String -> String
 fetchStreamsUrl userIds =
@@ -235,7 +235,7 @@ fetchStreams userIds =
   if List.isEmpty userIds then
     Cmd.none
   else
-    helix Streams (fetchStreamsUrl userIds) Deserialize.liveStreams
+    helix Streams (fetchStreamsUrl userIds) Twitch.Deserialize.liveStreams
 
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
@@ -246,14 +246,14 @@ fetchGames gameIds =
   if List.isEmpty gameIds then
     Cmd.none
   else
-    helix Games (fetchGamesUrl gameIds) Deserialize.games
+    helix Games (fetchGamesUrl gameIds) Twitch.Deserialize.games
 
 helix : ((Result Http.Error a) -> Msg) -> String -> Json.Decode.Decoder a -> Cmd Msg
 helix tagger url decoder =
   Http.send (Response << tagger) <| Http.request
     { method = "GET"
     , headers =
-      [ Http.header "Client-ID" TwitchId.clientId
+      [ Http.header "Client-ID" Twitch.Id.clientId
       ]
     , url = url
     , body = Http.emptyBody
