@@ -1,6 +1,38 @@
-module Twitch.Deserialize exposing (User, LiveStream, Game, users, liveStreams, games)
+module Twitch.Deserialize exposing
+  ( Token
+  , User
+  , LiveStream
+  , Game
+  , Follow
+  , Video
+  , token
+  , users
+  , liveStreams
+  , games
+  , follows
+  , videos
+  )
 
 import Json.Decode exposing (..)
+
+{- sub = "12345678", iss = "https://api.twitch.tv/api", aud = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", exp = 1511110246, iat = 1511109346 -}
+
+type alias Token =
+  { sub : String
+  , iss : String
+  , aud : String
+  , exp : Int
+  , iat : Int
+  }
+
+token : Decoder Token
+token =
+  map5 Token
+    (field "sub" string)
+    (field "iss" string)
+    (field "aud" string)
+    (field "exp" int)
+    (field "iat" int)
 
 {-"data":[{
    "id":"44322889",
@@ -59,7 +91,7 @@ type alias LiveStream =
   , userId : String
   , gameId : String
   , title : String
-  , viewerCount: Int
+  , viewerCount : Int
   , thumbnailUrl : String
   }
 
@@ -103,3 +135,75 @@ game =
     (field "id" string)
     (field "name" string)
     (field "box_art_url" string)
+
+{-"data":
+   [
+      {
+         "from_id":"171003792",
+         "to_id":"23161357",
+         "followed_at":"2017-08-22T22:55:24Z"
+      },
+      {
+         "from_id":"113627897",
+         "to_id":"23161357",
+         "followed_at":"2017-08-22T22:55:04Z"
+      },
+      . . . 
+   ],
+   "pagination":{"cursor":"eyJiIjpudWxsLCJhIjoiMTUwMzQ0MTc3NjQyNDQyMjAwMCJ9"}
+-}
+
+type alias Follow =
+  { from_id : String
+  , to_id : String
+  }
+
+follows : Decoder (List Follow)
+follows =
+  field "data" (list follow)
+
+follow : Decoder Follow
+follow =
+  map2 Follow
+    (field "from_id" string)
+    (field "to_id" string)
+
+{-
+   "data":
+      [
+         {
+            "id":"172982667",
+            "user_id":"141981764",
+            "title":"Developer Demonstrations - Twitch Extensions",
+            "description":"See a demonstration of Twitch Extensions from Curse, Muxy, OP.GG, Overwolf, Proletariat, and Streamlabs.",
+            "created_at":"2017-09-07T15:20:56Z",
+            "published_at":"2017-09-18T15:12:45Z",
+            "thumbnail_url":"https://static-cdn.jtvnw.net/s3_vods/twitchdev/172982667/942dca70-f00a-4ace-bac1-ca41eea0b524/thumb/custom93d2276919a54213-%{width}x%{height}.png",
+            "view_count":307,
+            "language":"en"
+         }
+      ]
+-}
+
+type alias Video =
+  { id : String
+  , userId : String
+  , title : String
+  , createdAt : String
+  , publishedAt : String
+  , thumbnailUrl : String
+  }
+
+videos : Decoder (List Video)
+videos =
+  field "data" (list video)
+
+video : Decoder Video
+video =
+  map6 Video
+    (field "id" string)
+    (field "user_id" string)
+    (field "title" string)
+    (field "created_at" string)
+    (field "published_at" string)
+    (field "thumbnail_url" string)
