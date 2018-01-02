@@ -1,6 +1,7 @@
 module View exposing (Msg(..), view)
 
 import Twitch.Deserialize exposing (User, LiveStream, Game)
+import Twitch.Template exposing (imageTemplateUrl)
 import UserList
 
 import Regex
@@ -130,11 +131,6 @@ displayBoxArt mgame =
         [ class "box-art"
         , style [ ("width", "38px"), ("height", "52px") ]
         ] []
-
-imageTemplateUrl : Int -> Int -> String -> String
-imageTemplateUrl w h =
-  Regex.replace Regex.All (Regex.regex "\\{width\\}") (\_ -> toString w)
-  >> Regex.replace Regex.All (Regex.regex "\\{height\\}") (\_ -> toString h)
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =
