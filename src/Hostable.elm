@@ -224,7 +224,13 @@ fetchUsers users =
   if List.isEmpty users then
     Cmd.none
   else
-    helix Users (fetchUsersUrl users) Twitch.Deserialize.users
+    helix <|
+      { clientId = Twitch.Id.clientId
+      , auth = Nothing
+      , decoder = Twitch.Deserialize.users
+      , tagger = Users
+      , url = (fetchUsersUrl users)
+      }
 
 fetchStreamsUrl : List String -> String
 fetchStreamsUrl userIds =
@@ -235,7 +241,13 @@ fetchStreams userIds =
   if List.isEmpty userIds then
     Cmd.none
   else
-    helix Streams (fetchStreamsUrl userIds) Twitch.Deserialize.liveStreams
+    helix <|
+      { clientId = Twitch.Id.clientId
+      , auth = Nothing
+      , decoder = Twitch.Deserialize.liveStreams
+      , tagger = Streams
+      , url = (fetchStreamsUrl userIds)
+      }
 
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
@@ -246,18 +258,42 @@ fetchGames gameIds =
   if List.isEmpty gameIds then
     Cmd.none
   else
-    helix Games (fetchGamesUrl gameIds) Twitch.Deserialize.games
+    helix <|
+      { clientId = Twitch.Id.clientId
+      , auth = Nothing
+      , decoder = Twitch.Deserialize.games
+      , tagger = Games
+      , url = (fetchGamesUrl gameIds)
+      }
 
-helix : ((Result Http.Error a) -> Msg) -> String -> Json.Decode.Decoder a -> Cmd Msg
-helix tagger url decoder =
-  Http.send (Response << tagger) <| Http.request
+helix :
+  { clientId : String
+  , auth : Maybe String
+  , decoder : Json.Decode.Decoder a
+  , tagger : ((Result Http.Error a) -> Msg)
+  , url : String
+  } -> Cmd Msg
+helix {clientId, auth, decoder, tagger, url} =
+  Http.send tagger <| Http.request
     { method = "GET"
-    , headers =
-      [ Http.header "Client-ID" Twitch.Id.clientId
-      ]
+    , headers = twitchHeaders clientId auth
     , url = url
     , body = Http.emptyBody
     , expect = Http.expectJson decoder
     , timeout = Nothing
     , withCredentials = False
     }
+
+twitchHeaders : String -> Maybe String -> List Http.Header
+twitchHeaders clientId auth =
+  List.append
+    [ Http.header "Client-ID" clientId
+    ] (authHeaders auth)
+
+authHeaders : Maybe String -> List Http.Header
+authHeaders auth =
+  case auth of
+    Just token ->
+      [ Http.header "Authorization" ("Bearer "++token) ]
+    Nothing ->
+      []
