@@ -1,4 +1,4 @@
-module Twitch.Id exposing (clientId)
+module TwitchId exposing (clientId)
 
 clientId = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 

@@ -4,7 +4,7 @@ import Persist exposing (Persist)
 import Persist.Encode exposing (persist)
 import Persist.Decode exposing (persist)
 import Twitch.Deserialize exposing (User, LiveStream, Game)
-import Twitch.Id
+import TwitchId
 import UserList
 import View
 import Harbor
@@ -225,7 +225,7 @@ fetchUsers users =
     Cmd.none
   else
     helix <|
-      { clientId = Twitch.Id.clientId
+      { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.users
       , tagger = Users
@@ -242,7 +242,7 @@ fetchStreams userIds =
     Cmd.none
   else
     helix <|
-      { clientId = Twitch.Id.clientId
+      { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.liveStreams
       , tagger = Streams
@@ -259,7 +259,7 @@ fetchGames gameIds =
     Cmd.none
   else
     helix <|
-      { clientId = Twitch.Id.clientId
+      { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.games
       , tagger = Games
