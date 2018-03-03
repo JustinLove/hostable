@@ -60,7 +60,10 @@ view model =
         text ""
       else 
         displayMissingUsers model.missingUsers
-    , Keyed.ul [ id "streams" ] <| List.map (\stream -> (stream.channelId, (streamView model stream))) model.liveStreams
+    , model.liveStreams
+      |> List.sortBy (\stream -> -stream.viewerCount)
+      |> List.map (\stream -> (stream.channelId, (streamView model stream)))
+      |> Keyed.ul [ id "streams" ]
     ]
 
 displayMissingUsers : List String -> Html Msg
