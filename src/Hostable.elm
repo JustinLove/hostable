@@ -1,9 +1,9 @@
 module Hostable exposing (..)
 
-import Persist exposing (Persist)
+import Persist exposing (Persist, User, Game)
 import Persist.Encode exposing (persist)
 import Persist.Decode exposing (persist)
-import Twitch.Deserialize exposing (User, LiveStream, Game)
+import Twitch.Deserialize exposing (LiveStream)
 import Twitch exposing (helix)
 import TwitchId
 import UserList
@@ -22,9 +22,9 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
-  | Users (Result Http.Error (List User))
+  | Users (Result Http.Error (List Twitch.Deserialize.User))
   | Streams (Result Http.Error (List LiveStream))
-  | Games (Result Http.Error (List Game))
+  | Games (Result Http.Error (List Twitch.Deserialize.Game))
   | Response Msg
   | NextRequest Time.Time
   | UI (View.Msg)
@@ -85,7 +85,7 @@ update msg model =
       , Cmd.none)
     Users (Ok users) ->
       { model
-      | users = List.append model.users users
+      | users = List.append model.users <| List.map importUser users
       , pendingStreams = List.append model.pendingStreams
         <| List.map .id users
       }
@@ -105,7 +105,7 @@ update msg model =
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
     Games (Ok games) ->
-      {model | games = List.append model.games games}
+      {model | games = List.append model.games <| List.map importGame games}
       |> persist
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
@@ -154,6 +154,19 @@ subscriptions model =
         Time.every (Time.second/requestRate) NextRequest
     , Harbor.loaded receiveLoaded
     ]
+
+importUser : Twitch.Deserialize.User -> User
+importUser user =
+  { id = user.id
+  , displayName = user.displayName
+  }
+
+importGame : Twitch.Deserialize.Game -> Game
+importGame game =
+  { id = game.id
+  , name = game.name
+  , boxArtUrl = game.boxArtUrl
+  }
 
 receiveLoaded : Maybe String -> Msg
 receiveLoaded mstring =

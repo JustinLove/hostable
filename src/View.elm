@@ -1,7 +1,8 @@
 module View exposing (Msg(..), view)
 
-import Twitch.Deserialize exposing (User, LiveStream, Game)
+import Twitch.Deserialize exposing (LiveStream)
 import Twitch.Template exposing (imageTemplateUrl)
+import Persist exposing (User, Game)
 import UserList
 
 import Regex
