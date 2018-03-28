@@ -1,5 +1,4 @@
-import Deserialize exposing (User, Game)
-import Persist exposing (Persist)
+import Persist exposing (Persist, User, Game)
 import Persist.Decode
 import Persist.Encode
 
