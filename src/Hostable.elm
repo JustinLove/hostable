@@ -229,7 +229,7 @@ fetchUsers users =
       { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.users
-      , tagger = Users
+      , tagger = Response << Users
       , url = (fetchUsersUrl users)
       }
 
@@ -246,7 +246,7 @@ fetchStreams userIds =
       { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.liveStreams
-      , tagger = Streams
+      , tagger = Response << Streams
       , url = (fetchStreamsUrl userIds)
       }
 
@@ -263,7 +263,7 @@ fetchGames gameIds =
       { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Twitch.Deserialize.games
-      , tagger = Games
+      , tagger = Response << Games
       , url = (fetchGamesUrl gameIds)
       }
 
