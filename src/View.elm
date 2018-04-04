@@ -65,6 +65,10 @@ view model =
     [ node "style" [] [ text css ]
     , header []
       [ button [onClick Refresh] [ text "Refresh" ]
+      , text " Requests: "
+      , text <| toString <| List.length model.pendingRequests
+      , text " "
+      , text <| toString <| model.outstandingRequests
       ]
     , if List.isEmpty model.missingUsers then
         text ""

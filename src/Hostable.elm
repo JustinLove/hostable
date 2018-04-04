@@ -96,7 +96,8 @@ update msg model =
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
-      ( fetchNextStreamBatch requestLimit
+      ( fetchNextGameBatch requestLimit
+        <| fetchNextStreamBatch requestLimit
         { model
         | liveStreams = List.append model.liveStreams streams
         }
@@ -111,10 +112,7 @@ update msg model =
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
     Response subMsg ->
-      let
-        (m2, c2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
-      in
-        (fetchNextGameBatch requestLimit m2, c2)
+      update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
     NextRequest _ ->
       case model.pendingRequests of
         next :: rest ->
@@ -202,7 +200,8 @@ missingUsers model =
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
   { model
-  | pendingUsers = List.drop batch model.pendingUsers
+  | missingUsers = missingUsers model
+  , pendingUsers = List.drop batch model.pendingUsers
   } |> appendRequests [fetchUsers <| List.take batch model.pendingUsers]
 
 fetchNextStreamBatch : Int -> Model -> Model
@@ -213,14 +212,12 @@ fetchNextStreamBatch batch model =
 
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =
-  if model.outstandingRequests == 0 && List.isEmpty model.pendingRequests then
-    let known = Set.fromList <| List.map .id model.games
-        required = Set.fromList <| List.map .gameId model.liveStreams
-        missing = Set.toList <| Set.diff required known
-    in
-      { model | missingUsers = missingUsers model }
-      |> appendRequests [fetchGames <| List.take batch missing]
-  else model
+  let known = Set.fromList <| List.map .id model.games
+      required = Set.fromList <| List.map .gameId model.liveStreams
+      missing = Set.toList <| Set.diff required known
+  in
+    model
+    |> appendRequests [fetchGames <| List.take batch missing]
 
 appendRequests : List (Cmd Msg) -> Model -> Model
 appendRequests cmds model = 
