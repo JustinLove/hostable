@@ -66,9 +66,8 @@ view model =
     , header []
       [ button [onClick Refresh] [ text "Refresh" ]
       , text " Requests: "
-      , text <| toString <| List.length model.pendingRequests
-      , text " "
-      , text <| toString <| model.outstandingRequests
+      , text <| toString
+        <| ((List.length model.pendingRequests) + model.outstandingRequests)
       ]
     , if List.isEmpty model.missingUsers then
         text ""
