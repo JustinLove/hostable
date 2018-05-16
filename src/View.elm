@@ -4,15 +4,18 @@ import Twitch.Deserialize exposing (LiveStream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (User, Game)
 import UserList
+import ScheduleGraph exposing (..)
 
 import Regex
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
+import Date exposing (Day(..))
+import Dict
 
 type Msg
-  = HostClicked String
+  = HostClicked String String
   | Refresh
 
 boxWidth = 70
@@ -47,6 +50,7 @@ body {
   color: rgb(250, 249, 250);
   border: 1px solid #392e5c;
 }
+.schedule-graph { width: 240px; }
 
 .comments li {
   display: inline-block;
@@ -94,6 +98,7 @@ streamView model stream =
   let
     name = displayNameFor model.users stream
     game = gameFor model.games stream
+    mevents = Dict.get stream.userId model.events
   in
   li [ class "stream" ]
     [ div [ class "graphics" ]
@@ -111,13 +116,25 @@ streamView model stream =
           , input
             [ class "channel"
             , id ("host-" ++ name)
-            , Html.Events.onClick (HostClicked ("host-" ++ name))
+            , Html.Events.onClick (HostClicked stream.userId ("host-" ++ name))
             , readonly True
             , value ("/host " ++ name)
             ] []
           ]
         , let gameName = nameOfGame game in p [ class "game-name", title gameName] [ text gameName ]
         , p [ class "title", title stream.title ] [ text stream.title]
+        , div [ class "schedule-graph" ]
+          [ case mevents of
+            Just events ->
+              scheduleGraph <|
+                { width = 240
+                , height = 40
+                , time = 0
+                , days = [Wed]
+                , events = events
+                }
+            Nothing -> text ""
+          ]
         , ul [ class "comments" ]
           (List.map (li [] << List.singleton << text)
             <| commentsForStream name UserList.users)

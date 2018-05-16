@@ -7,6 +7,7 @@ import Twitch.Deserialize exposing (LiveStream)
 import Twitch exposing (helix)
 import TwitchId
 import UserList
+import ScheduleGraph exposing (Event)
 import View
 import Harbor
 
@@ -14,6 +15,7 @@ import Html
 import Http
 import Time
 import Set
+import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
 
@@ -25,6 +27,7 @@ type Msg
   | Users (Result Http.Error (List Twitch.Deserialize.User))
   | Streams (Result Http.Error (List LiveStream))
   | Games (Result Http.Error (List Twitch.Deserialize.Game))
+  | Videos String (Result Http.Error (List Twitch.Deserialize.Video))
   | Response Msg
   | NextRequest Time.Time
   | UI (View.Msg)
@@ -33,6 +36,7 @@ type alias Model =
   { users : List User
   , games : List Game
   , liveStreams : List LiveStream
+  , events : Dict String (List Event)
   , missingUsers : List String
   , pendingUsers : List String
   , pendingStreams : List String
@@ -53,6 +57,7 @@ init =
   ( { users = []
     , games = []
     , liveStreams = []
+    , events = Dict.empty
     , missingUsers = []
     , pendingUsers = []
     , pendingStreams = []
@@ -111,6 +116,15 @@ update msg model =
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
+    Videos userId (Ok videos) ->
+      ( { model
+        | events = Dict.insert userId (List.map (\v -> {start = v.createdAt, duration = v.duration}) videos) model.events
+        }
+      , Cmd.none
+      )
+    Videos _ (Err error) ->
+      let _ = Debug.log "video fetch error" error in
+      (model, Cmd.none)
     Response subMsg ->
       update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
     NextRequest _ ->
@@ -121,8 +135,13 @@ update msg model =
             , outstandingRequests = model.outstandingRequests + (if next == Cmd.none then 0 else 1)
             }, next)
         _ -> (model, Cmd.none)
-    UI (View.HostClicked controlId) ->
-      (model, Harbor.select controlId)
+    UI (View.HostClicked userId controlId) ->
+      ( { model
+        | pendingRequests =
+          List.append model.pendingRequests [fetchVideos userId]
+        }
+      , Harbor.select controlId
+      )
     UI (View.Refresh) ->
       (fetchNextStreamBatch requestLimit
         { model
@@ -277,3 +296,16 @@ fetchGames gameIds =
       , url = (fetchGamesUrl gameIds)
       }
 
+fetchVideosUrl : String -> String
+fetchVideosUrl userId =
+  "https://api.twitch.tv/helix/videos?first=100&user_id=" ++ userId
+
+fetchVideos : String -> Cmd Msg
+fetchVideos userId =
+  helix <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = Twitch.Deserialize.videos
+    , tagger = Response << (Videos userId)
+    , url = (fetchVideosUrl userId)
+    }
