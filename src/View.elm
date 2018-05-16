@@ -125,6 +125,7 @@ streamView model stream =
         , p [ class "title", title stream.title ] [ text stream.title]
         , div [ class "schedule-graph" ]
           [ case mevents of
+            Just [] -> text "no videos"
             Just events ->
               scheduleGraph <|
                 { width = 240
