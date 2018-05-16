@@ -82,6 +82,7 @@ update msg model =
             { model
             | users = state.users
             , games = state.games
+            , events = state.events
             }
           Nothing ->
             model
@@ -119,11 +120,10 @@ update msg model =
       { e = Debug.log "game fetch error" error
       , r = (model, Cmd.none)}.r
     Videos userId (Ok videos) ->
-      ( { model
-        | events = Dict.insert userId (List.map (\v -> {start = v.createdAt, duration = v.duration}) videos) model.events
-        }
-      , Cmd.none
-      )
+      { model
+      | events = Dict.insert userId (List.map (\v -> {start = v.createdAt, duration = v.duration}) videos) model.events
+      }
+        |> persist
     Videos _ (Err error) ->
       let _ = Debug.log "video fetch error" error in
       (model, Cmd.none)
@@ -160,7 +160,7 @@ persist model =
 
 saveState : Model -> Cmd Msg
 saveState model =
-  Persist model.users model.games
+  Persist model.users model.games model.events
     |> Persist.Encode.persist
     |> Json.Encode.encode 0
     |> Harbor.save

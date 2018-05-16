@@ -1,4 +1,4 @@
-import Persist exposing (Persist, User, Game)
+import Persist exposing (Persist, User, Game, Event)
 import Persist.Decode
 import Persist.Encode
 
@@ -8,6 +8,7 @@ import Runner exposing (runAll)
 
 import Html exposing (Html)
 import Json.Decode
+import Dict
 
 main : Html msg
 main =
@@ -29,6 +30,7 @@ all = describe "serialization"
     ( Persist
       [ (User "1" "name") ]
       [ (Game "1" "name" "http://example.com") ]
+      (Dict.singleton "1" [ Event 0 1 ])
     )
   ]
 
