@@ -130,8 +130,8 @@ streamView model stream =
               scheduleGraph <|
                 { width = 240
                 , height = 40
-                , time = 0
-                , days = [Wed]
+                , time = model.time
+                , days = [Date.dayOfWeek <| Date.fromTime model.time]
                 , events = events
                 }
             Nothing -> text ""

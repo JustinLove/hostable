@@ -13,7 +13,7 @@ import Harbor
 
 import Html
 import Http
-import Time
+import Time exposing (Time)
 import Set
 import Dict exposing (Dict)
 import Json.Decode
@@ -29,7 +29,7 @@ type Msg
   | Games (Result Http.Error (List Twitch.Deserialize.Game))
   | Videos String (Result Http.Error (List Twitch.Deserialize.Video))
   | Response Msg
-  | NextRequest Time.Time
+  | NextRequest Time
   | UI (View.Msg)
 
 type alias Model =
@@ -43,6 +43,7 @@ type alias Model =
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   , previewVersion : Int
+  , time : Time
   }
 
 main = Html.program
@@ -64,6 +65,7 @@ init =
     , pendingRequests = []
     , outstandingRequests = 0
     , previewVersion = 0
+    , time = 0
     }
   , Cmd.none
   )
@@ -127,12 +129,13 @@ update msg model =
       (model, Cmd.none)
     Response subMsg ->
       update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
-    NextRequest _ ->
+    NextRequest time ->
       case model.pendingRequests of
         next :: rest ->
           ( { model
             | pendingRequests = rest
             , outstandingRequests = model.outstandingRequests + (if next == Cmd.none then 0 else 1)
+            , time = time
             }, next)
         _ -> (model, Cmd.none)
     UI (View.HostClicked userId controlId) ->
