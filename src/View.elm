@@ -12,6 +12,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
 import Svg.Attributes
+import Color
 import Date exposing (Day(..))
 import Dict
 
@@ -133,6 +134,13 @@ streamView model stream =
                 , time = model.time
                 , days = [Date.dayOfWeek <| Date.fromTime model.time]
                 , events = events
+                , style =
+                  { dataColor = Color.rgb 100 65 164
+                  , labelColor = Color.rgb 218 216 222
+                  , ruleColor = Color.white
+                  , currentDayColor = Color.white
+                  , currentTimeColor = Color.red
+                  }
                 }
             Nothing -> text ""
         , ul [ class "comments" ]
