@@ -11,6 +11,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
+import Svg.Attributes
 import Date exposing (Day(..))
 import Dict
 
@@ -123,11 +124,10 @@ streamView model stream =
           ]
         , let gameName = nameOfGame game in p [ class "game-name", title gameName] [ text gameName ]
         , p [ class "title", title stream.title ] [ text stream.title]
-        , div [ class "schedule-graph" ]
-          [ case mevents of
-            Just [] -> text "no videos"
+        , case mevents of
+            Just [] -> p [] [text "no videos"]
             Just events ->
-              scheduleGraph <|
+              scheduleGraph [ Svg.Attributes.class "schedule-graph"] <|
                 { width = 240
                 , height = 40
                 , time = model.time
@@ -135,7 +135,6 @@ streamView model stream =
                 , events = events
                 }
             Nothing -> text ""
-          ]
         , ul [ class "comments" ]
           (List.map (li [] << List.singleton << text)
             <| commentsForStream name UserList.users)
