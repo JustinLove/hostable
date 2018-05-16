@@ -20,6 +20,9 @@ module Twitch.Deserialize exposing
   )
 
 import Json.Decode exposing (..)
+import Date
+import Time exposing (Time)
+import Regex
 
 sampleToken = """{ sub = "12345678", iss = "https://api.twitch.tv/api", aud = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", exp = 1511110246, iat = 1511109346 }"""
 
@@ -197,30 +200,38 @@ follow =
 
 sampleVideo = """
 {
-   "data":
-      [
-         {
-            "id":"172982667",
-            "user_id":"141981764",
-            "title":"Developer Demonstrations - Twitch Extensions",
-            "description":"See a demonstration of Twitch Extensions from Curse, Muxy, OP.GG, Overwolf, Proletariat, and Streamlabs.",
-            "created_at":"2017-09-07T15:20:56Z",
-            "published_at":"2017-09-18T15:12:45Z",
-            "thumbnail_url":"https://static-cdn.jtvnw.net/s3_vods/twitchdev/172982667/942dca70-f00a-4ace-bac1-ca41eea0b524/thumb/custom93d2276919a54213-%{width}x%{height}.png",
-            "view_count":307,
-            "language":"en"
-         }
-      ]
-}
-"""
+  "data": [{
+    "id": "234482848",
+    "user_id": "67955580",
+    "title": "-",
+    "description": "",
+    "created_at": "2018-03-02T20:53:41Z",
+    "published_at": "2018-03-02T20:53:41Z",
+    "url": "https://www.twitch.tv/videos/234482848",
+    "thumbnail_url": "https://static-cdn.jtvnw.net/s3_vods/bebc8cba2926d1967418_chewiemelodies_27786761696_805342775/thumb/thumb0-%{width}x%{height}.jpg",
+    "viewable": "public",
+    "view_count": 142,
+    "language": "en",
+    "type": "archive",
+    "duration": "3h8m33s"
+  }],
+  "pagination":{"cursor":"eyJiIjpudWxsLCJhIjoiMTUwMzQ0MTc3NjQyNDQyMjAwMCJ9"}
+}"""
 
 type alias Video =
   { id : String
   , userId : String
   , title : String
-  , createdAt : String
-  , publishedAt : String
+  , description : String
+  , createdAt : Time
+  , publishedAt : Time
+  , url : String
   , thumbnailUrl : String
+  , viewable : Viewable
+  , viewCount : Int
+  , language : String
+  , videoType : VideoType
+  , duration : Time
   }
 
 videos : Decoder (List Video)
@@ -229,10 +240,71 @@ videos =
 
 video : Decoder Video
 video =
-  map6 Video
-    (field "id" string)
-    (field "user_id" string)
-    (field "title" string)
-    (field "created_at" string)
-    (field "published_at" string)
-    (field "thumbnail_url" string)
+  succeed Video
+    |> map2 (|>) (field "id" string)
+    |> map2 (|>) (field "user_id" string)
+    |> map2 (|>) (field "title" string)
+    |> map2 (|>) (field "description" string)
+    |> map2 (|>) (field "created_at" timeStamp)
+    |> map2 (|>) (field "published_at" timeStamp)
+    |> map2 (|>) (field "url" string)
+    |> map2 (|>) (field "thumbnail_url" string)
+    |> map2 (|>) (field "viewable" viewable)
+    |> map2 (|>) (field "view_count" int)
+    |> map2 (|>) (field "language" string)
+    |> map2 (|>) (field "type" videoType)
+    |> map2 (|>) (field "duration" duration)
+
+type Viewable
+  = Public
+  | Private
+
+viewable : Decoder Viewable
+viewable =
+  string
+    |> map (\s -> case s of
+      "public" -> Public
+      "private" -> Private
+      _ -> Private
+    )
+
+type VideoType
+  = Upload
+  | Archive
+  | Highlight
+  | Other String
+
+videoType : Decoder VideoType
+videoType =
+  string
+    |> map (\s -> case s of
+      "upload" -> Upload
+      "archive" -> Archive
+      "highlight" -> Highlight
+      _ -> Other s
+    )
+
+duration : Decoder Time
+duration =
+  string
+    |> map (\s -> Regex.find Regex.All (Regex.regex "(((\\d+)h)?(\\d+)m)?(\\d+)s") s
+      |> List.map .submatches
+      |> List.concatMap identity
+      |> List.reverse
+      |> List.take 3
+      |> List.map (Maybe.andThen (String.toInt >> Result.toMaybe))
+      |> List.map (Maybe.withDefault 0)
+      |> List.map2 (*) [1, 60, 60*60]
+      |> List.sum
+      |> toFloat
+      |> (*) Time.second
+    )
+
+
+timeStamp : Decoder Time
+timeStamp =
+  string
+    |> andThen (\s -> case Date.fromString s of
+      Ok d -> succeed (Date.toTime d)
+      Err err -> fail err
+    )
