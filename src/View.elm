@@ -137,7 +137,7 @@ streamView model stream =
                 , style =
                   { dataColor = Color.rgb 100 65 164
                   , labelColor = Color.rgb 218 216 222
-                  , ruleColor = Color.white
+                  , ruleColor = Color.grayscale 0.1
                   , currentDayColor = Color.white
                   , currentTimeColor = Color.red
                   }
