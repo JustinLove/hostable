@@ -6,7 +6,6 @@ import Persist exposing (User, Game)
 import UserList
 import ScheduleGraph exposing (..)
 
-import Regex
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
