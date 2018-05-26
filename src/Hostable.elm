@@ -121,7 +121,11 @@ update msg model =
       , r = (model, Cmd.none)}.r
     Videos userId (Ok videos) ->
       { model
-      | events = Dict.insert userId (List.map (\v -> {start = v.createdAt, duration = v.duration}) videos) model.events
+      | events = Dict.insert userId
+        (videos
+          |> List.filter (\v -> v.videoType == Twitch.Deserialize.Archive)
+          |> List.map (\v -> {start = v.createdAt, duration = v.duration})
+        ) model.events
       }
         |> persist
     Videos _ (Err error) ->
