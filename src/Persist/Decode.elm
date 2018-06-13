@@ -1,4 +1,4 @@
-module Persist.Decode exposing (persist, user, game, event)
+module Persist.Decode exposing (persist, export, user, game, event)
 
 import Persist exposing (Persist, User, Game, Event)
 
@@ -14,6 +14,10 @@ persist =
       [ (field "events" (dict (list event)))
       , succeed Dict.empty
       ])
+
+export : Decoder (List User)
+export =
+  (field "users" (list user))
 
 user : Decoder User
 user =

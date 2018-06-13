@@ -24,7 +24,7 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
-  | ImportedFile String
+  | Imported (Result String (List User))
   | Users (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
@@ -96,7 +96,15 @@ update msg model =
         |> fetchNextUserBatch requestLimit
         |> fetchNextStreamBatch requestLimit
       , Cmd.none)
-    ImportedFile text ->
+    Imported (Ok users) ->
+      { model
+      | users = users
+      , liveStreams = []
+      , pendingStreams = List.map .id users
+      }
+      |> fetchNextStreamBatch requestLimit
+      |> persist
+    Imported (Err err) ->
       (model, Cmd.none)
     Users (Ok users) ->
       { model
@@ -227,6 +235,7 @@ subscriptions model =
       else
         Time.every (Time.second/requestRate) NextRequest
     , Harbor.loaded receiveLoaded
+    , Harbor.fileContents receiveImported
     ]
 
 importUser : Helix.User -> User
@@ -267,6 +276,13 @@ receiveLoaded mstring =
        |> Result.toMaybe
       )
     |> Loaded
+
+receiveImported : String -> Msg
+receiveImported string =
+  string
+    |> Json.Decode.decodeString Persist.Decode.export
+    |> Result.mapError (Debug.log "import decode error")
+    |> Imported
 
 resolveLoadedState : Model -> Model
 resolveLoadedState model =
