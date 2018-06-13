@@ -42,6 +42,7 @@ type alias Model =
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   , previewVersion : Int
+  , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
   , addingComment : Maybe String
   , time : Time
@@ -65,6 +66,7 @@ init =
     , pendingRequests = []
     , outstandingRequests = 0
     , previewVersion = 0
+    , selectedUser = Nothing
     , selectedComment = Nothing
     , addingComment = Nothing
     , time = 0
@@ -155,6 +157,7 @@ update msg model =
       ( { model
         | pendingRequests =
           List.append model.pendingRequests [fetchVideos userId]
+        , selectedUser = Just userId
         }
       , Harbor.select controlId
       )
@@ -176,6 +179,12 @@ update msg model =
         )
       else
         (model, Cmd.none)
+    UI (View.RemoveChannel userId) ->
+      { model
+      | users = List.filter (\u -> u.id /= userId) model.users
+      , liveStreams = List.filter (\s -> s.userId /= userId) model.liveStreams
+      , selectedUser = Nothing
+      } |> persist
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->

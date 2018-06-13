@@ -22,6 +22,7 @@ type Msg
   = HostClicked String String
   | Refresh
   | AddChannel String
+  | RemoveChannel String
   | SelectComment String String
   | RemoveComment String String
   | AddComment String
@@ -142,6 +143,10 @@ streamView model stream =
             , readonly True
             , value ("/host " ++ name)
             ] []
+          , if model.selectedUser == Just stream.userId then
+              button [ onClick (RemoveChannel stream.userId) ] [ text "X" ]
+            else
+              text ""
           ]
         , let gameName = nameOfGame game in p [ class "game-name", title gameName] [ text gameName ]
         , p [ class "title", title stream.title ] [ text stream.title]
