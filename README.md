@@ -18,4 +18,4 @@ My build command:
 
 Once built, `public/index.html` can be opened locally from the filesystem, or set up for a local or internet server as you wish.
 
-The generated page is styled after the twitch following list. A host command is provided for copy-paste. User comments/tags can be provided in the UserLilst file.
+The generated page is styled after the twitch following list. A host command is provided for copy-paste. User comments/tags can be provided in the UserList file.

@@ -111,7 +111,9 @@ displayMissingUsers missingUsers =
 --streamView : Model -> Stream -> Html Msg
 streamView model stream =
   let
-    name = displayNameFor model.users stream
+    muser = userFor model.users stream
+    name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
+    tags = muser |> Maybe.map .tags |> Maybe.withDefault []
     game = gameFor model.games stream
     mevents = Dict.get stream.userId model.events
   in
@@ -158,7 +160,7 @@ streamView model stream =
             Nothing -> text ""
         , ul [ class "comments" ]
           (List.map (li [] << List.singleton << text)
-            <| commentsForStream name UserList.users)
+            <| tags)
         ]
       ]
     ]
@@ -168,6 +170,11 @@ displayNameFor users stream =
   List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users
    |> List.head
    |> Maybe.withDefault "unknown"
+
+userFor : List User -> Stream -> Maybe User
+userFor users stream =
+  List.filter (\u -> u.id == stream.userId) users
+   |> List.head
 
 gameFor : List Game -> Stream -> Maybe Game
 gameFor games stream =
@@ -199,19 +206,6 @@ nameOfGame mgame =
       game.name
     Nothing ->
       "--"
-
-commentsForStream : String -> List (String, List String) -> List String
-commentsForStream userName users =
-  List.filterMap (commentIfMatch userName) users
-    |> List.head
-    |> Maybe.withDefault []
-
-commentIfMatch : String -> (String, List String) -> Maybe (List String)
-commentIfMatch userName (name, comments) =
-  if (String.toLower name) == (String.toLower userName) then
-    Just comments
-  else
-    Nothing
 
 targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =

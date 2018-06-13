@@ -12,6 +12,7 @@ type alias Persist =
 type alias User =
   { id : String
   , displayName : String
+  , tags : List String
   }
 
 type alias Game =

@@ -17,9 +17,10 @@ persist =
 
 user : Decoder User
 user =
-  map2 User
+  map3 User
     (field "id" string)
     (field "displayName" string)
+    (succeed [])
 
 game : Decoder Game
 game =

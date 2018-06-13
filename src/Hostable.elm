@@ -185,6 +185,7 @@ importUser : Helix.User -> User
 importUser user =
   { id = user.id
   , displayName = user.displayName
+  , tags = commentsForStream user.displayName UserList.users
   }
 
 importGame : Helix.Game -> Game
@@ -193,6 +194,20 @@ importGame game =
   , name = game.name
   , boxArtUrl = game.boxArtUrl
   }
+
+commentsForStream : String -> List (String, List String) -> List String
+commentsForStream userName users =
+  List.filterMap (commentIfMatch userName) users
+    |> List.head
+    |> Maybe.withDefault []
+
+commentIfMatch : String -> (String, List String) -> Maybe (List String)
+commentIfMatch userName (name, comments) =
+  if (String.toLower name) == (String.toLower userName) then
+    Just comments
+  else
+    Nothing
+
 
 receiveLoaded : Maybe String -> Msg
 receiveLoaded mstring =
@@ -208,7 +223,11 @@ receiveLoaded mstring =
 resolveLoadedState : Model -> Model
 resolveLoadedState model =
   let
-    currentUsers = List.filter (\u -> Set.member (u.displayName |> String.toLower) desiredUserNames) model.users
+    currentUsers = model.users
+      |> List.filter (\u -> Set.member (u.displayName |> String.toLower) desiredUserNames)
+      |> List.map (\u ->
+        {u | tags = commentsForStream u.displayName UserList.users }
+      )
     missing = missingUsers model
   in
     { model
