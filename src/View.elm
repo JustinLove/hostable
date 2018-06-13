@@ -21,6 +21,7 @@ type Msg
   | Refresh
   | AddChannel String
   | SelectComment String String
+  | RemoveComment String String
 
 boxWidth = 70
 boxHeight = 95
@@ -177,7 +178,7 @@ displayComment selectedComment userId comment =
     if selected then
       li []
         [ text comment
-        , button [] [ text "X" ]
+        , button [ onClick (RemoveComment userId comment) ] [ text "X" ]
         ]
     else
       li [ onClick (SelectComment userId comment) ] <| List.singleton <| text comment

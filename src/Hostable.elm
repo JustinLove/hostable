@@ -172,6 +172,21 @@ update msg model =
         (model, Cmd.none)
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
+    UI (View.RemoveComment userId comment) ->
+      ( { model
+        | selectedComment = Nothing
+        , users = removeComment userId comment model.users
+        }
+      , Cmd.none
+      )
+
+removeComment : String -> String -> List User -> List User
+removeComment userId comment users =
+  users |> List.map (\u -> if u.id == userId then
+      { u | tags = List.filter (\t -> t /= comment) u.tags }
+    else
+      u
+    )
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
