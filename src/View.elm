@@ -27,6 +27,7 @@ type Msg
   | RemoveComment String String
   | AddComment String
   | CreateComment String String
+  | Import Json.Decode.Value
 
 boxWidth = 70
 boxHeight = 95
@@ -96,6 +97,11 @@ view model =
           , on "change" <| targetValue Json.Decode.string AddChannel
           ] []
         ]
+      , input
+        [ type_ "file"
+        , on "change" (targetFiles Import)
+        ]
+        []
       , a
           [ href ("data:;base64," ++ (model.users |> export |> Base64.encode))
           , downloadAs "hostable.json"
@@ -259,3 +265,10 @@ targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =
   Json.Decode.map tagger
     (Json.Decode.at ["target", "value" ] decoder)
+
+
+targetFiles : (Json.Decode.Value -> msg) -> Json.Decode.Decoder msg
+targetFiles tagger =
+  (Json.Decode.at ["target", "files"] Json.Decode.value)
+    |> Json.Decode.map tagger
+    --|> Json.Decode.map (Debug.log "files")

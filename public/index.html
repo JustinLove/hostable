@@ -35,6 +35,19 @@
 
   var loaded = localStorage.getItem(key)
   app.ports.loaded.send(loaded)
+
+  app.ports.read.subscribe(function(files) {
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i]
+      //console.log(file)
+      var reader = new FileReader()
+      reader.onload = function(e) {
+        //console.log(e.target.result)
+        app.ports.fileContents.send(e.target.result)
+      }
+      reader.readAsText(file)
+    }
+  })
 </script>
 
 </html>

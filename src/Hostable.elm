@@ -24,6 +24,7 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
+  | ImportedFile String
   | Users (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
@@ -95,6 +96,8 @@ update msg model =
         |> fetchNextUserBatch requestLimit
         |> fetchNextStreamBatch requestLimit
       , Cmd.none)
+    ImportedFile text ->
+      (model, Cmd.none)
     Users (Ok users) ->
       { model
       | users = List.append model.users <| List.map importUser users
@@ -186,7 +189,8 @@ update msg model =
         | addingComment = Nothing
         , users = addComment userId comment model.users
       } |> persist
-
+    UI (View.Import files) ->
+      (model, Harbor.read files)
 
 removeComment : String -> String -> List User -> List User
 removeComment userId comment users =
