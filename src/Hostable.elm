@@ -157,6 +157,8 @@ update msg model =
         , previewVersion = model.previewVersion + 1
         }
       , Cmd.none)
+    UI (View.AddChannel name) ->
+      (model, Cmd.none)
 
 persist : Model -> (Model, Cmd Msg)
 persist model =

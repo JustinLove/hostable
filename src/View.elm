@@ -8,16 +8,18 @@ import ScheduleGraph exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, on)
 import Html.Keyed as Keyed
 import Svg.Attributes
 import Color
 import Date exposing (Day(..))
 import Dict
+import Json.Decode
 
 type Msg
   = HostClicked String String
   | Refresh
+  | AddChannel String
 
 boxWidth = 70
 boxHeight = 95
@@ -30,6 +32,7 @@ body {
   background-color: rgb(23, 20, 31);
   color: rgb(218, 216, 222);
 }
+header { display: flex; justify-content: space-between;}
 #streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 200px; padding: 10px; }
 .graphics { width: 240px; height: 95px; position: relative; }
@@ -69,10 +72,21 @@ view model =
   div []
     [ node "style" [] [ text css ]
     , header []
-      [ button [onClick Refresh] [ text "Refresh" ]
-      , text " Requests: "
-      , text <| toString
+      [ div [ class "refresh" ] 
+        [ button [onClick Refresh] [ text "Refresh" ]
+        , text " Requests: "
+        , text <| toString
         <| ((List.length model.pendingRequests) + model.outstandingRequests)
+        ]
+      , div [ class "add-channel" ]
+        [ label [ for "channelname" ] [ text "Add Channel" ]
+        , input
+          [ type_ "text"
+          , id "channelname"
+          , name "channelname"
+          , on "change" <| targetValue Json.Decode.string AddChannel
+          ] []
+        ]
       ]
     , if List.isEmpty model.missingUsers then
         text ""
@@ -198,3 +212,8 @@ commentIfMatch userName (name, comments) =
     Just comments
   else
     Nothing
+
+targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
+targetValue decoder tagger =
+  Json.Decode.map tagger
+    (Json.Decode.at ["target", "value" ] decoder)
