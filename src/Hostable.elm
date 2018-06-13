@@ -1,8 +1,8 @@
 module Hostable exposing (..)
 
 import Persist exposing (Persist, User, Game)
-import Persist.Encode exposing (persist)
-import Persist.Decode exposing (persist)
+import Persist.Encode
+import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
 import Twitch.Helix as Helix
 import TwitchId

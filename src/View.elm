@@ -3,6 +3,7 @@ module View exposing (Msg(..), view)
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (User, Game)
+import Persist.Encode
 import UserList
 import ScheduleGraph exposing (..)
 
@@ -15,6 +16,8 @@ import Color
 import Date exposing (Day(..))
 import Dict
 import Json.Decode
+import Json.Encode
+import Base64
 
 type Msg
   = HostClicked String String
@@ -93,6 +96,11 @@ view model =
           , on "change" <| targetValue Json.Decode.string AddChannel
           ] []
         ]
+      , a
+          [ href ("data:;base64," ++ (model.users |> export |> Base64.encode))
+          , downloadAs "hostable.json"
+          ]
+          [ text "export" ]
       ]
     , if List.isEmpty model.missingUsers then
         text ""
@@ -240,6 +248,12 @@ nameOfGame mgame =
       game.name
     Nothing ->
       "--"
+
+export : List User -> String
+export users =
+  users
+    |> Persist.Encode.export
+    |> Json.Encode.encode 2
 
 targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =
