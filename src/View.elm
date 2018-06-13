@@ -84,6 +84,7 @@ view model =
           [ type_ "text"
           , id "channelname"
           , name "channelname"
+          , value ""
           , on "change" <| targetValue Json.Decode.string AddChannel
           ] []
         ]

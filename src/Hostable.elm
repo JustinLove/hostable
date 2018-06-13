@@ -158,7 +158,12 @@ update msg model =
         }
       , Cmd.none)
     UI (View.AddChannel name) ->
-      (model, Cmd.none)
+      ( { model
+        | missingUsers = List.append model.missingUsers [name]
+        , pendingUsers = List.append model.pendingUsers [name]
+        } |> fetchNextUserBatch requestLimit
+      , Cmd.none
+      )
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
