@@ -20,6 +20,7 @@ type Msg
   = HostClicked String String
   | Refresh
   | AddChannel String
+  | SelectComment String String
 
 boxWidth = 70
 boxHeight = 95
@@ -161,11 +162,25 @@ streamView model stream =
                 }
             Nothing -> text ""
         , ul [ class "comments" ]
-          (List.map (li [] << List.singleton << text)
+          (List.map (displayComment model.selectedComment stream.userId)
             <| tags)
         ]
       ]
     ]
+
+displayComment : Maybe (String, String) -> String -> String -> Html Msg
+displayComment selectedComment userId comment =
+  let selected = case selectedComment of
+    Just (id, com) -> id == userId && com == comment
+    Nothing -> False
+  in
+    if selected then
+      li []
+        [ text comment
+        , button [] [ text "X" ]
+        ]
+    else
+      li [ onClick (SelectComment userId comment) ] <| List.singleton <| text comment
 
 userFor : List User -> Stream -> Maybe User
 userFor users stream =

@@ -43,6 +43,7 @@ type alias Model =
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   , previewVersion : Int
+  , selectedComment : Maybe (String, String)
   , time : Time
   }
 
@@ -65,6 +66,7 @@ init =
     , pendingRequests = []
     , outstandingRequests = 0
     , previewVersion = 0
+    , selectedComment = Nothing
     , time = 0
     }
   , Cmd.none
@@ -168,6 +170,8 @@ update msg model =
         )
       else
         (model, Cmd.none)
+    UI (View.SelectComment userId comment) ->
+      ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
