@@ -56,6 +56,7 @@ header { display: flex; justify-content: space-between;}
 }
 .schedule-graph { width: 240px; }
 
+.comments { padding: 0;}
 .comments li {
   display: inline-block;
   margin: 0.2em;
