@@ -44,6 +44,7 @@ type alias Model =
   , outstandingRequests : Int
   , previewVersion : Int
   , selectedComment : Maybe (String, String)
+  , addingComment : Maybe String
   , time : Time
   }
 
@@ -67,6 +68,7 @@ init =
     , outstandingRequests = 0
     , previewVersion = 0
     , selectedComment = Nothing
+    , addingComment = Nothing
     , time = 0
     }
   , Cmd.none
@@ -179,11 +181,29 @@ update msg model =
         }
       , Cmd.none
       )
+    UI (View.AddComment userId) ->
+      ( { model | addingComment = Just userId }, Cmd.none)
+    UI (View.CreateComment userId comment) ->
+      ( { model
+        | addingComment = Nothing
+        , users = addComment userId comment model.users
+        }
+      , Cmd.none
+      )
+
 
 removeComment : String -> String -> List User -> List User
 removeComment userId comment users =
   users |> List.map (\u -> if u.id == userId then
       { u | tags = List.filter (\t -> t /= comment) u.tags }
+    else
+      u
+    )
+
+addComment : String -> String -> List User -> List User
+addComment userId comment users =
+  users |> List.map (\u -> if u.id == userId then
+      { u | tags = comment :: u.tags }
     else
       u
     )

@@ -22,6 +22,8 @@ type Msg
   | AddChannel String
   | SelectComment String String
   | RemoveComment String String
+  | AddComment String
+  | CreateComment String String
 
 boxWidth = 70
 boxHeight = 95
@@ -163,8 +165,10 @@ streamView model stream =
                 }
             Nothing -> text ""
         , ul [ class "comments" ]
-          (List.map (displayComment model.selectedComment stream.userId)
-            <| tags)
+          (tags
+            |> List.map (displayComment model.selectedComment stream.userId)
+            |> (::) (displayAddingComment model.addingComment stream.userId)
+          )
         ]
       ]
     ]
@@ -182,6 +186,24 @@ displayComment selectedComment userId comment =
         ]
     else
       li [ onClick (SelectComment userId comment) ] <| List.singleton <| text comment
+
+displayAddingComment : Maybe String -> String -> Html Msg
+displayAddingComment addingComment userId =
+  let adding = case addingComment of
+    Just id -> id == userId
+    Nothing -> False
+  in
+    if adding then
+      li [ ]
+        [ input
+          [ type_ "text"
+          , id "new-comment"
+          , name "new-comment"
+          , on "change" <| targetValue Json.Decode.string (CreateComment userId)
+          ] []
+        ]
+    else
+      li [ onClick (AddComment userId) ] [ text "+"]
 
 userFor : List User -> Stream -> Maybe User
 userFor users stream =
