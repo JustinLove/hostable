@@ -158,12 +158,16 @@ update msg model =
         }
       , Cmd.none)
     UI (View.AddChannel name) ->
-      ( { model
-        | missingUsers = List.append model.missingUsers [name]
-        , pendingUsers = List.append model.pendingUsers [name]
-        } |> fetchNextUserBatch requestLimit
-      , Cmd.none
-      )
+      let lower = String.toLower name in
+      if (List.filter (\u -> (String.toLower u.displayName) == lower) model.users) == [] then
+        ( { model
+          | missingUsers = List.append model.missingUsers [name]
+          , pendingUsers = List.append model.pendingUsers [name]
+          } |> fetchNextUserBatch requestLimit
+        , Cmd.none
+        )
+      else
+        (model, Cmd.none)
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
