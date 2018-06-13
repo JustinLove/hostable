@@ -1,6 +1,6 @@
 module View exposing (Msg(..), view)
 
-import Twitch.Deserialize exposing (LiveStream)
+import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (User, Game)
 import UserList
@@ -94,7 +94,7 @@ displayMissingUsers missingUsers =
       |> p []
     ]
 
---streamView : Model -> LiveStream -> Html Msg
+--streamView : Model -> Stream -> Html Msg
 streamView model stream =
   let
     name = displayNameFor model.users stream
@@ -149,13 +149,13 @@ streamView model stream =
       ]
     ]
 
-displayNameFor : List User -> LiveStream -> String
+displayNameFor : List User -> Stream -> String
 displayNameFor users stream =
   List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users
    |> List.head
    |> Maybe.withDefault "unknown"
 
-gameFor : List Game -> LiveStream -> Maybe Game
+gameFor : List Game -> Stream -> Maybe Game
 gameFor games stream =
   List.filterMap (\g -> if g.id == stream.gameId then Just g else Nothing) games
    |> List.head

@@ -3,8 +3,8 @@ module Hostable exposing (..)
 import Persist exposing (Persist, User, Game)
 import Persist.Encode exposing (persist)
 import Persist.Decode exposing (persist)
-import Twitch.Deserialize exposing (LiveStream)
-import Twitch exposing (helix)
+import Twitch.Helix.Decode as Helix exposing (Stream)
+import Twitch.Helix as Helix
 import TwitchId
 import UserList
 import ScheduleGraph exposing (Event)
@@ -24,10 +24,10 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
-  | Users (Result Http.Error (List Twitch.Deserialize.User))
-  | Streams (Result Http.Error (List LiveStream))
-  | Games (Result Http.Error (List Twitch.Deserialize.Game))
-  | Videos String (Result Http.Error (List Twitch.Deserialize.Video))
+  | Users (Result Http.Error (List Helix.User))
+  | Streams (Result Http.Error (List Stream))
+  | Games (Result Http.Error (List Helix.Game))
+  | Videos String (Result Http.Error (List Helix.Video))
   | Response Msg
   | NextRequest Time
   | UI (View.Msg)
@@ -35,7 +35,7 @@ type Msg
 type alias Model =
   { users : List User
   , games : List Game
-  , liveStreams : List LiveStream
+  , liveStreams : List Stream
   , events : Dict String (List Event)
   , missingUsers : List String
   , pendingUsers : List String
@@ -123,7 +123,7 @@ update msg model =
       { model
       | events = Dict.insert userId
         (videos
-          |> List.filter (\v -> v.videoType == Twitch.Deserialize.Archive)
+          |> List.filter (\v -> v.videoType == Helix.Archive)
           |> List.map (\v -> {start = v.createdAt, duration = v.duration})
         ) model.events
       }
@@ -179,13 +179,13 @@ subscriptions model =
     , Harbor.loaded receiveLoaded
     ]
 
-importUser : Twitch.Deserialize.User -> User
+importUser : Helix.User -> User
 importUser user =
   { id = user.id
   , displayName = user.displayName
   }
 
-importGame : Twitch.Deserialize.Game -> Game
+importGame : Helix.Game -> Game
 importGame game =
   { id = game.id
   , name = game.name
@@ -261,10 +261,10 @@ fetchUsers users =
   if List.isEmpty users then
     Cmd.none
   else
-    helix <|
+    Helix.send <|
       { clientId = TwitchId.clientId
       , auth = Nothing
-      , decoder = Twitch.Deserialize.users
+      , decoder = Helix.users
       , tagger = Response << Users
       , url = (fetchUsersUrl users)
       }
@@ -278,10 +278,10 @@ fetchStreams userIds =
   if List.isEmpty userIds then
     Cmd.none
   else
-    helix <|
+    Helix.send <|
       { clientId = TwitchId.clientId
       , auth = Nothing
-      , decoder = Twitch.Deserialize.liveStreams
+      , decoder = Helix.streams
       , tagger = Response << Streams
       , url = (fetchStreamsUrl userIds)
       }
@@ -295,10 +295,10 @@ fetchGames gameIds =
   if List.isEmpty gameIds then
     Cmd.none
   else
-    helix <|
+    Helix.send <|
       { clientId = TwitchId.clientId
       , auth = Nothing
-      , decoder = Twitch.Deserialize.games
+      , decoder = Helix.games
       , tagger = Response << Games
       , url = (fetchGamesUrl gameIds)
       }
@@ -309,10 +309,10 @@ fetchVideosUrl userId =
 
 fetchVideos : String -> Cmd Msg
 fetchVideos userId =
-  helix <|
+  Helix.send <|
     { clientId = TwitchId.clientId
     , auth = Nothing
-    , decoder = Twitch.Deserialize.videos
+    , decoder = Helix.videos
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
     }
