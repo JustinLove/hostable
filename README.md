@@ -21,3 +21,7 @@ My build command:
 Once built, `public/index.html` can be opened locally from the filesystem, or set up for a local or internet server as you wish.
 
 The generated page is styled after the twitch following list. A host command is provided for copy-paste.
+
+## Credits
+
+Icons: [IcoMoon - Free](https://icomoon.io/#icons-icomoon) ([CC BY 4.0](http://creativecommons.org/licenses/by/4.0/))

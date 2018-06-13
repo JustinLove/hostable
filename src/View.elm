@@ -10,7 +10,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, on)
 import Html.Keyed as Keyed
-import Svg.Attributes
+import Svg exposing (svg, use)
+import Svg.Attributes exposing (xlinkHref)
 import Color
 import Date exposing (Day(..))
 import Dict
@@ -74,6 +75,20 @@ header { display: flex; justify-content: space-between;}
   background-color: grey;
   border-radius: 0.2em;
 }
+svg.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.2em;
+  stroke-width: 0;
+  stroke: currentColor;
+  fill: currentColor;
+}
+.icon-github { color: #888; }
+.icon-twitter { color: #55acee; }
+.icon-twitch { color: #6441A4; }
+a:link, a:visited { color: #b19dd8; }
+a:hover, a:active { color: rgb(218, 216, 222); }
 """
 
 --view : Model -> Html Msg
@@ -112,6 +127,7 @@ view model =
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams" ]
+    , displayFooter
     ]
 
 --streamView : Model -> Stream -> Html Msg
@@ -244,6 +260,24 @@ nameOfGame mgame =
       game.name
     Nothing ->
       "--"
+
+displayFooter : Html msg
+displayFooter =
+  footer []
+  [ a [ href "https://github.com/JustinLove/hostable" ]
+    [ icon "github", text "hostable" ]
+  , text " "
+  , a [ href "https://twitter.com/wondible" ]
+    [ icon "twitter", text "@wondible" ]
+  , text " "
+  , a [ href "https://twitch.tv/wondible" ]
+    [ icon "twitch", text "wondible" ]
+  ]
+
+icon : String -> Html msg
+icon name =
+  svg [ Svg.Attributes.class ("icon icon-"++name) ]
+    [ use [ xlinkHref ("#icon-"++name) ] [] ]
 
 export : List User -> String
 export users =
