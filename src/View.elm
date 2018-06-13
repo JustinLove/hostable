@@ -167,12 +167,6 @@ streamView model stream =
       ]
     ]
 
-displayNameFor : List User -> Stream -> String
-displayNameFor users stream =
-  List.filterMap (\u -> if u.id == stream.userId then Just u.displayName else Nothing) users
-   |> List.head
-   |> Maybe.withDefault "unknown"
-
 userFor : List User -> Stream -> Maybe User
 userFor users stream =
   List.filter (\u -> u.id == stream.userId) users
