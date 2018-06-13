@@ -6,7 +6,6 @@ import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
 import Twitch.Helix as Helix
 import TwitchId
-import UserList
 import ScheduleGraph exposing (Event)
 import View
 import Harbor
@@ -38,7 +37,6 @@ type alias Model =
   , games : List Game
   , liveStreams : List Stream
   , events : Dict String (List Event)
-  , missingUsers : List String
   , pendingUsers : List String
   , pendingStreams : List String
   , pendingRequests : List (Cmd Msg)
@@ -62,7 +60,6 @@ init =
     , games = []
     , liveStreams = []
     , events = Dict.empty
-    , missingUsers = []
     , pendingUsers = []
     , pendingStreams = []
     , pendingRequests = []
@@ -75,9 +72,6 @@ init =
   , Cmd.none
   )
 
-desiredUserNames : Set.Set String
-desiredUserNames = Set.fromList <| List.map (Tuple.first >> String.toLower) UserList.users
-
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -88,11 +82,11 @@ update msg model =
             | users = state.users
             , games = state.games
             , events = state.events
+            , pendingStreams = List.map .id state.users
             }
           Nothing ->
             model
         )
-        |> resolveLoadedState
         |> fetchNextUserBatch requestLimit
         |> fetchNextStreamBatch requestLimit
       , Cmd.none)
@@ -176,8 +170,7 @@ update msg model =
       let lower = String.toLower name in
       if (List.filter (\u -> (String.toLower u.displayName) == lower) model.users) == [] then
         ( { model
-          | missingUsers = List.append model.missingUsers [name]
-          , pendingUsers = List.append model.pendingUsers [name]
+          | pendingUsers = List.append model.pendingUsers [name]
           } |> fetchNextUserBatch requestLimit
         , Cmd.none
         )
@@ -242,7 +235,7 @@ importUser : Helix.User -> User
 importUser user =
   { id = user.id
   , displayName = user.displayName
-  , tags = commentsForStream user.displayName UserList.users
+  , tags = []
   }
 
 importGame : Helix.Game -> Game
@@ -284,35 +277,10 @@ receiveImported string =
     |> Result.mapError (Debug.log "import decode error")
     |> Imported
 
-resolveLoadedState : Model -> Model
-resolveLoadedState model =
-  let
-    currentUsers = model.users
-      |> List.filter (\u -> Set.member (u.displayName |> String.toLower) desiredUserNames)
-      |> List.map (\u ->
-        {u | tags = commentsForStream u.displayName UserList.users }
-      )
-    missing = missingUsers model
-  in
-    { model
-    | users = currentUsers
-    , missingUsers = missing
-    , pendingUsers = missing
-    , pendingStreams = List.map .id currentUsers
-    }
-
-missingUsers : Model -> List String
-missingUsers model =
-  let
-    known = Set.fromList <| List.map (.displayName >> String.toLower) model.users
-  in
-    Set.toList <| Set.diff desiredUserNames known
-
 fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
   { model
-  | missingUsers = missingUsers model
-  , pendingUsers = List.drop batch model.pendingUsers
+  | pendingUsers = List.drop batch model.pendingUsers
   } |> appendRequests [fetchUsers <| List.take batch model.pendingUsers]
 
 fetchNextStreamBatch : Int -> Model -> Model

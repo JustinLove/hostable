@@ -4,7 +4,6 @@ import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (User, Game)
 import Persist.Encode
-import UserList
 import ScheduleGraph exposing (..)
 
 import Html exposing (..)
@@ -108,24 +107,10 @@ view model =
           ]
           [ text "export" ]
       ]
-    , if List.isEmpty model.missingUsers then
-        text ""
-      else 
-        displayMissingUsers model.missingUsers
     , model.liveStreams
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams" ]
-    ]
-
-displayMissingUsers : List String -> Html Msg
-displayMissingUsers missingUsers =
-  div []
-    [ h2 [] [ text "Missing Users" ]
-    , missingUsers
-      |> List.intersperse " "
-      |> List.map text
-      |> p []
     ]
 
 --streamView : Model -> Stream -> Html Msg
