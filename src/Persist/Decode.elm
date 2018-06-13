@@ -20,7 +20,11 @@ user =
   map3 User
     (field "id" string)
     (field "displayName" string)
-    (succeed [])
+    (oneOf
+      [ field "tags" (list string)
+      , succeed []
+      ]
+    )
 
 game : Decoder Game
 game =

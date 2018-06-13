@@ -18,6 +18,7 @@ user u =
   object
     [ ("id", string u.id)
     , ("displayName", string u.displayName)
+    , ("tags", list <| List.map string u.tags)
     ]
 
 game : Game -> Value

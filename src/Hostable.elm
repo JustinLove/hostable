@@ -175,21 +175,17 @@ update msg model =
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->
-      ( { model
+      { model
         | selectedComment = Nothing
         , users = removeComment userId comment model.users
-        }
-      , Cmd.none
-      )
+      } |> persist
     UI (View.AddComment userId) ->
       ( { model | addingComment = Just userId }, Cmd.none)
     UI (View.CreateComment userId comment) ->
-      ( { model
+      { model
         | addingComment = Nothing
         , users = addComment userId comment model.users
-        }
-      , Cmd.none
-      )
+      } |> persist
 
 
 removeComment : String -> String -> List User -> List User
