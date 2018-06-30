@@ -159,7 +159,10 @@ update msg model =
           List.append model.pendingRequests [fetchVideos userId]
         , selectedUser = Just userId
         }
-      , Harbor.select controlId
+      , Cmd.batch
+        [ Harbor.select controlId
+        , fetchUsersById [userId]
+        ]
       )
     UI (View.Refresh) ->
       (fetchNextStreamBatch requestLimit
@@ -316,7 +319,7 @@ fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
   { model
   | pendingUsers = List.drop batch model.pendingUsers
-  } |> appendRequests [fetchUsers <| List.take batch model.pendingUsers]
+  } |> appendRequests [fetchUsersByLogin <| List.take batch model.pendingUsers]
 
 fetchNextStreamBatch : Int -> Model -> Model
 fetchNextStreamBatch batch model =
@@ -340,12 +343,12 @@ appendRequests cmds model =
     <| List.filter (\c -> c /= Cmd.none) cmds
   }
 
-fetchUsersUrl : List String -> String
-fetchUsersUrl users =
+fetchUsersByLoginUrl : List String -> String
+fetchUsersByLoginUrl users =
   "https://api.twitch.tv/helix/users?login=" ++ (String.join "&login=" users)
 
-fetchUsers : List String -> Cmd Msg
-fetchUsers users =
+fetchUsersByLogin : List String -> Cmd Msg
+fetchUsersByLogin users =
   if List.isEmpty users then
     Cmd.none
   else
@@ -354,7 +357,24 @@ fetchUsers users =
       , auth = Nothing
       , decoder = Helix.users
       , tagger = Response << Users
-      , url = (fetchUsersUrl users)
+      , url = (fetchUsersByLoginUrl users)
+      }
+
+fetchUsersByIdUrl : List String -> String
+fetchUsersByIdUrl ids =
+  "https://api.twitch.tv/helix/users?id=" ++ (String.join "&id=" ids)
+
+fetchUsersById : List String -> Cmd Msg
+fetchUsersById ids =
+  if List.isEmpty ids then
+    Cmd.none
+  else
+    Helix.send <|
+      { clientId = TwitchId.clientId
+      , auth = Nothing
+      , decoder = Helix.users
+      , tagger = Response << Users
+      , url = (fetchUsersByIdUrl ids)
       }
 
 fetchStreamsUrl : List String -> String
