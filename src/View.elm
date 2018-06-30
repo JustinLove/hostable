@@ -14,7 +14,7 @@ import Svg exposing (svg, use)
 import Svg.Attributes exposing (xlinkHref)
 import Color
 import Date exposing (Day(..))
-import Dict
+import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
 import Base64
@@ -118,7 +118,7 @@ view model =
         ]
         []
       , a
-          [ href ("data:;base64," ++ (model.users |> export |> Base64.encode))
+          [ href ("data:;base64," ++ (model.users |> Dict.values |> export |> Base64.encode))
           , downloadAs "hostable.json"
           ]
           [ text "export" ]
@@ -225,16 +225,13 @@ displayAddingComment addingComment userId =
     else
       li [ onClick (AddComment userId) ] [ text "+"]
 
-userFor : List User -> Stream -> Maybe User
+userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
-  List.filter (\u -> u.id == stream.userId) users
-   |> List.head
+  Dict.get stream.userId users
 
-gameFor : List Game -> Stream -> Maybe Game
+gameFor : Dict String Game -> Stream -> Maybe Game
 gameFor games stream =
-  List.filterMap (\g -> if g.id == stream.gameId then Just g else Nothing) games
-   |> List.head
-
+  Dict.get stream.gameId games
 
 displayBoxArt : Maybe Game -> Html Msg
 displayBoxArt mgame =

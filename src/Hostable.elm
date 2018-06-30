@@ -33,8 +33,8 @@ type Msg
   | UI (View.Msg)
 
 type alias Model =
-  { users : List User
-  , games : List Game
+  { users : Dict String User
+  , games : Dict String Game
   , liveStreams : List Stream
   , events : Dict String (List Event)
   , pendingUsers : List String
@@ -57,8 +57,8 @@ main = Html.program
 
 init : (Model, Cmd Msg)
 init =
-  ( { users = []
-    , games = []
+  ( { users = Dict.empty
+    , games = Dict.empty
     , liveStreams = []
     , events = Dict.empty
     , pendingUsers = []
@@ -81,8 +81,8 @@ update msg model =
       ( ( case mstate of
           Just state ->
             { model
-            | users = state.users
-            , games = state.games
+            | users = state.users |> toUserDict
+            , games = state.games |> toGameDict
             , events = state.events
             , pendingStreams = List.map .id state.users
             }
@@ -94,7 +94,7 @@ update msg model =
       , Cmd.none)
     Imported (Ok users) ->
       { model
-      | users = users
+      | users = users |> toUserDict
       , liveStreams = []
       , pendingStreams = List.map .id users
       }
@@ -104,7 +104,7 @@ update msg model =
       (model, Cmd.none)
     Users (Ok users) ->
       { model
-      | users = List.append model.users <| List.map importUser users
+      | users = addUsers (List.map importUser users) model.users
       , pendingStreams = List.append model.pendingStreams
         <| List.map .id users
       }
@@ -124,8 +124,8 @@ update msg model =
     Streams (Err error) ->
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
-    Games (Ok games) ->
-      {model | games = List.append model.games <| List.map importGame games}
+    Games (Ok news) ->
+      {model | games = List.foldl (\g games -> Dict.insert g.id g games) model.games news}
       |> persist
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
@@ -165,13 +165,13 @@ update msg model =
       (fetchNextStreamBatch requestLimit
         { model
         | liveStreams = []
-        , pendingStreams = List.map .id model.users
+        , pendingStreams = Dict.keys model.users
         , previewVersion = model.previewVersion + 1
         }
       , Cmd.none)
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
-      if (List.filter (\u -> (String.toLower u.displayName) == lower) model.users) == [] then
+      if (List.filter (\u -> (String.toLower u.displayName) == lower) (Dict.values model.users)) == [] then
         ( { model
           | pendingUsers = List.append model.pendingUsers [name]
           } |> fetchNextUserBatch requestLimit
@@ -181,7 +181,7 @@ update msg model =
         (model, Cmd.none)
     UI (View.RemoveChannel userId) ->
       { model
-      | users = List.filter (\u -> u.id /= userId) model.users
+      | users = Dict.remove userId model.users
       , liveStreams = List.filter (\s -> s.userId /= userId) model.liveStreams
       , selectedUser = Nothing
       } |> persist
@@ -202,21 +202,47 @@ update msg model =
     UI (View.Import files) ->
       (model, Harbor.read files)
 
-removeComment : String -> String -> List User -> List User
-removeComment userId comment users =
-  users |> List.map (\u -> if u.id == userId then
-      { u | tags = List.filter (\t -> t /= comment) u.tags }
-    else
-      u
-    )
+toUserDict : List User -> Dict String User
+toUserDict =
+  List.map (\u -> (u.id, u)) >> Dict.fromList
 
-addComment : String -> String -> List User -> List User
+toGameDict : List Game -> Dict String Game
+toGameDict =
+  List.map (\g -> (g.id, g)) >> Dict.fromList
+
+addUsers : List User -> Dict String User -> Dict String User
+addUsers news olds =
+  let
+    onlyNew = Dict.insert
+    both = \userId new old users ->
+      Dict.insert userId {old | displayName = new.displayName} users
+    onlyOld = Dict.insert
+  in
+  Dict.merge
+    onlyNew
+    both
+    onlyOld
+    (news |> toUserDict)
+    olds
+    Dict.empty
+
+removeComment : String -> String -> Dict String User -> Dict String User
+removeComment userId comment users =
+  Dict.update
+    userId
+    (Maybe.map (\u ->
+      { u | tags = List.filter (\t -> t /= comment) u.tags }
+    ))
+    users
+
+addComment : String -> String -> Dict String User -> Dict String User
 addComment userId comment users =
-  users |> List.map (\u -> if u.id == userId then
+  Dict.update
+    userId
+    (Maybe.map (\u ->
       { u | tags = comment :: u.tags }
-    else
-      u
-    )
+    ))
+    users
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
@@ -224,7 +250,7 @@ persist model =
 
 saveState : Model -> Cmd Msg
 saveState model =
-  Persist model.users model.games model.events
+  Persist (Dict.values model.users) (Dict.values model.games) model.events
     |> Persist.Encode.persist
     |> Json.Encode.encode 0
     |> Harbor.save
@@ -300,7 +326,7 @@ fetchNextStreamBatch batch model =
 
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =
-  let known = Set.fromList <| List.map .id model.games
+  let known = Set.fromList <| Dict.keys model.games
       required = Set.fromList <| List.map .gameId model.liveStreams
       missing = Set.toList <| Set.diff required known
   in
