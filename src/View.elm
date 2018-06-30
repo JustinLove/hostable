@@ -124,6 +124,7 @@ view model =
           [ text "export" ]
       ]
     , model.liveStreams
+      |> Dict.values
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams" ]

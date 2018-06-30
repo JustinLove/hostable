@@ -35,7 +35,7 @@ type Msg
 type alias Model =
   { users : Dict String User
   , games : Dict String Game
-  , liveStreams : List Stream
+  , liveStreams : Dict String Stream
   , events : Dict String (List Event)
   , pendingUsers : List String
   , pendingStreams : List String
@@ -59,7 +59,7 @@ init : (Model, Cmd Msg)
 init =
   ( { users = Dict.empty
     , games = Dict.empty
-    , liveStreams = []
+    , liveStreams = Dict.empty
     , events = Dict.empty
     , pendingUsers = []
     , pendingStreams = []
@@ -95,7 +95,7 @@ update msg model =
     Imported (Ok users) ->
       { model
       | users = users |> toUserDict
-      , liveStreams = []
+      , liveStreams = Dict.empty
       , pendingStreams = List.map .id users
       }
       |> fetchNextStreamBatch requestLimit
@@ -118,14 +118,20 @@ update msg model =
       ( fetchNextGameBatch requestLimit
         <| fetchNextStreamBatch requestLimit
         { model
-        | liveStreams = List.append model.liveStreams streams
+        | liveStreams = List.foldl (\s liveStreams ->
+            Dict.insert s.userId s liveStreams
+          ) model.liveStreams streams
         }
       , Cmd.none)
     Streams (Err error) ->
       { e = Debug.log "stream fetch error" error
       , r = (model, Cmd.none)}.r
     Games (Ok news) ->
-      {model | games = List.foldl (\g games -> Dict.insert g.id g games) model.games news}
+      { model
+      | games = List.foldl (\g games ->
+          Dict.insert g.id g games
+        ) model.games news
+      }
       |> persist
     Games (Err error) ->
       { e = Debug.log "game fetch error" error
@@ -167,7 +173,7 @@ update msg model =
     UI (View.Refresh) ->
       (fetchNextStreamBatch requestLimit
         { model
-        | liveStreams = []
+        | liveStreams = Dict.empty
         , pendingStreams = Dict.keys model.users
         , previewVersion = model.previewVersion + 1
         }
@@ -185,7 +191,7 @@ update msg model =
     UI (View.RemoveChannel userId) ->
       { model
       | users = Dict.remove userId model.users
-      , liveStreams = List.filter (\s -> s.userId /= userId) model.liveStreams
+      , liveStreams = Dict.remove userId model.liveStreams
       , selectedUser = Nothing
       } |> persist
     UI (View.SelectComment userId comment) ->
@@ -330,7 +336,7 @@ fetchNextStreamBatch batch model =
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =
   let known = Set.fromList <| Dict.keys model.games
-      required = Set.fromList <| List.map .gameId model.liveStreams
+      required = Set.fromList <| List.map .gameId <| Dict.values model.liveStreams
       missing = Set.toList <| Set.diff required known
   in
     model
