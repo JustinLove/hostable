@@ -162,13 +162,13 @@ update msg model =
     UI (View.HostClicked userId controlId) ->
       ( { model
         | pendingRequests =
-          List.append model.pendingRequests [fetchVideos userId]
+          List.append model.pendingRequests
+            [ fetchUsersById [userId]
+            , fetchVideos userId
+            ]
         , selectedUser = Just userId
         }
-      , Cmd.batch
-        [ Harbor.select controlId
-        , fetchUsersById [userId]
-        ]
+      , Harbor.select controlId
       )
     UI (View.Refresh) ->
       (fetchNextStreamBatch requestLimit
