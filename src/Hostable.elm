@@ -11,6 +11,9 @@ import View
 import Harbor
 
 import Html
+import Dom
+import Task
+import Process
 import Http
 import Time exposing (Time)
 import Set
@@ -30,6 +33,7 @@ type Msg
   | Videos String (Result Http.Error (List Helix.Video))
   | Response Msg
   | NextRequest Time
+  | Focused (Result Dom.Error ())
   | UI (View.Msg)
 
 type alias Model =
@@ -159,6 +163,8 @@ update msg model =
             , time = time
             }, next)
         _ -> (model, Cmd.none)
+    Focused _ ->
+      (model, Cmd.none)
     UI (View.HostClicked userId controlId) ->
       ( { model
         | pendingRequests =
@@ -202,7 +208,11 @@ update msg model =
         , users = removeComment userId comment model.users
       } |> persist
     UI (View.AddComment userId) ->
-      ( { model | addingComment = Just userId }, Cmd.none)
+      ( { model | addingComment = Just userId }
+      , Process.sleep 0
+        |> Task.andThen (\_ -> Dom.focus "new-comment")
+        |> Task.attempt Focused
+      )
     UI (View.CreateComment userId comment) ->
       { model
         | addingComment = Nothing
