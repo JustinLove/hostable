@@ -28,6 +28,7 @@ type Msg
   = Loaded (Maybe Persist)
   | Imported (Result String (List User))
   | Users (Result Http.Error (List Helix.User))
+  | UserUpdate (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
@@ -116,6 +117,14 @@ update msg model =
       |> fetchNextStreamBatch requestLimit
       |> persist
     Users (Err error) ->
+      { e = Debug.log "user fetch error" error
+      , r = (model, Cmd.none)}.r
+    UserUpdate (Ok users) ->
+      { model
+      | users = addUsers (List.map importUser users) model.users
+      }
+      |> persist
+    UserUpdate (Err error) ->
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
@@ -389,7 +398,7 @@ fetchUsersById ids =
       { clientId = TwitchId.clientId
       , auth = Nothing
       , decoder = Helix.users
-      , tagger = Response << Users
+      , tagger = Response << UserUpdate
       , url = (fetchUsersByIdUrl ids)
       }
 
