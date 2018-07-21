@@ -1,4 +1,4 @@
-module Persist exposing (Persist, User, Game, Event)
+module Persist exposing (Persist, User, Game, Community, Event)
 
 import Dict exposing (Dict)
 import Time exposing (Time)
@@ -19,6 +19,11 @@ type alias Game =
   { id : String
   , name : String
   , boxArtUrl : String
+  }
+
+type alias Community =
+  { id : String
+  , name : String
   }
 
 type alias Event =

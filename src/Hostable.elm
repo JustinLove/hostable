@@ -1,6 +1,6 @@
 module Hostable exposing (..)
 
-import Persist exposing (Persist, User, Game)
+import Persist exposing (Persist, User, Game, Community)
 import Persist.Encode
 import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
@@ -40,10 +40,11 @@ type Msg
 type alias Model =
   { users : Dict String User
   , games : Dict String Game
+  , communities : Dict String Community
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
   , pendingUsers : List String
-  , pendingStreams : List String
+  , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   , previewVersion : Int
@@ -64,10 +65,14 @@ init : (Model, Cmd Msg)
 init =
   ( { users = Dict.empty
     , games = Dict.empty
+    , communities = Dict.fromList
+      -- [ ("9d175334-ccdd-4da8-a3aa-d9631f95610e", Community "9d175334-ccdd-4da8-a3aa-d9631f95610e" "Programming")
+      [ ("a00aef10-3cd9-455c-831f-b2ac1d711950", Community "a00aef10-3cd9-455c-831f-b2ac1d711950" "Devsauce")
+      ]
     , liveStreams = Dict.empty
     , events = Dict.empty
     , pendingUsers = []
-    , pendingStreams = []
+    , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
     , previewVersion = 0
@@ -89,32 +94,33 @@ update msg model =
             | users = state.users |> toUserDict
             , games = state.games |> toGameDict
             , events = state.events
-            , pendingStreams = List.map .id state.users
+            , pendingUserStreams = List.map .id state.users
             }
           Nothing ->
             model
         )
         |> fetchNextUserBatch requestLimit
-        |> fetchNextStreamBatch requestLimit
+        |> fetchNextUserStreamBatch requestLimit
+        |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
       , Cmd.none)
     Imported (Ok users) ->
       { model
       | users = users |> toUserDict
       , liveStreams = Dict.empty
-      , pendingStreams = List.map .id users
+      , pendingUserStreams = List.map .id users
       }
-      |> fetchNextStreamBatch requestLimit
+      |> fetchNextUserStreamBatch requestLimit
       |> persist
     Imported (Err err) ->
       (model, Cmd.none)
     Users (Ok users) ->
       { model
       | users = addUsers (List.map importUser users) model.users
-      , pendingStreams = List.append model.pendingStreams
+      , pendingUserStreams = List.append model.pendingUserStreams
         <| List.map .id users
       }
       |> fetchNextUserBatch requestLimit
-      |> fetchNextStreamBatch requestLimit
+      |> fetchNextUserStreamBatch requestLimit
       |> persist
     Users (Err error) ->
       { e = Debug.log "user fetch error" error
@@ -129,7 +135,7 @@ update msg model =
       , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
       ( fetchNextGameBatch requestLimit
-        <| fetchNextStreamBatch requestLimit
+        <| fetchNextUserStreamBatch requestLimit
         { model
         | liveStreams = List.foldl (\s liveStreams ->
             Dict.insert s.userId s liveStreams
@@ -186,12 +192,13 @@ update msg model =
       , Harbor.select controlId
       )
     UI (View.Refresh) ->
-      (fetchNextStreamBatch requestLimit
+      (fetchNextUserStreamBatch requestLimit
         { model
         | liveStreams = Dict.empty
-        , pendingStreams = Dict.keys model.users
+        , pendingUserStreams = Dict.keys model.users
         , previewVersion = model.previewVersion + 1
         }
+        |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
       , Cmd.none)
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
@@ -346,11 +353,11 @@ fetchNextUserBatch batch model =
   | pendingUsers = List.drop batch model.pendingUsers
   } |> appendRequests [fetchUsersByLogin <| List.take batch model.pendingUsers]
 
-fetchNextStreamBatch : Int -> Model -> Model
-fetchNextStreamBatch batch model =
+fetchNextUserStreamBatch : Int -> Model -> Model
+fetchNextUserStreamBatch batch model =
   { model
-  | pendingStreams = List.drop batch model.pendingStreams
-  } |> appendRequests [fetchStreams <| List.take batch model.pendingStreams]
+  | pendingUserStreams = List.drop batch model.pendingUserStreams
+  } |> appendRequests [fetchStreamsByUserIds <| List.take batch model.pendingUserStreams]
 
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =
@@ -402,12 +409,12 @@ fetchUsersById ids =
       , url = (fetchUsersByIdUrl ids)
       }
 
-fetchStreamsUrl : List String -> String
-fetchStreamsUrl userIds =
+fetchStreamsByUserIdsUrl : List String -> String
+fetchStreamsByUserIdsUrl userIds =
   "https://api.twitch.tv/helix/streams?type=live&first=100&user_id=" ++ (String.join "&user_id=" userIds)
 
-fetchStreams : List String -> Cmd Msg
-fetchStreams userIds =
+fetchStreamsByUserIds : List String -> Cmd Msg
+fetchStreamsByUserIds userIds =
   if List.isEmpty userIds then
     Cmd.none
   else
@@ -416,7 +423,24 @@ fetchStreams userIds =
       , auth = Nothing
       , decoder = Helix.streams
       , tagger = Response << Streams
-      , url = (fetchStreamsUrl userIds)
+      , url = (fetchStreamsByUserIdsUrl userIds)
+      }
+
+fetchStreamsByCommunityIdsUrl : List String -> String
+fetchStreamsByCommunityIdsUrl communityIds =
+  "https://api.twitch.tv/helix/streams?type=live&first=100&community_id=" ++ (String.join "&community_id=" communityIds)
+
+fetchStreamsByCommunityIds : List String -> Cmd Msg
+fetchStreamsByCommunityIds communityIds =
+  if List.isEmpty communityIds then
+    Cmd.none
+  else
+    Helix.send <|
+      { clientId = TwitchId.clientId
+      , auth = Nothing
+      , decoder = Helix.streams
+      , tagger = Response << Streams
+      , url = (fetchStreamsByCommunityIdsUrl communityIds)
       }
 
 fetchGamesUrl : List String -> String
