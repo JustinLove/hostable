@@ -21,7 +21,7 @@ export =
 
 user : Decoder User
 user =
-  map3 User
+  map4 User
     (field "id" string)
     (field "displayName" string)
     (oneOf
@@ -29,6 +29,7 @@ user =
       , succeed []
       ]
     )
+    (succeed True)
 
 game : Decoder Game
 game =

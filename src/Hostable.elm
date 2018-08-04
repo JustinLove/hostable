@@ -29,6 +29,7 @@ type Msg
   | Imported (Result String (List User))
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
+  | UnknownUsers (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
@@ -115,7 +116,7 @@ update msg model =
       (model, Cmd.none)
     Users (Ok users) ->
       { model
-      | users = addUsers (List.map importUser users) model.users
+      | users = addUsers (List.map (importUser>>persistUser) users) model.users
       , pendingUserStreams = List.append model.pendingUserStreams
         <| List.map .id users
       }
@@ -127,15 +128,24 @@ update msg model =
       , r = (model, Cmd.none)}.r
     UserUpdate (Ok users) ->
       { model
-      | users = addUsers (List.map importUser users) model.users
+      | users = addUsers (List.map (importUser>>persistUser) users) model.users
       }
       |> persist
     UserUpdate (Err error) ->
       { e = Debug.log "user fetch error" error
       , r = (model, Cmd.none)}.r
+    UnknownUsers (Ok users) ->
+      ( { model
+        | users = addUsers (List.map importUser users) model.users
+        }
+      , Cmd.none)
+    UnknownUsers (Err error) ->
+      { e = Debug.log "unknown user fetch error" error
+      , r = (model, Cmd.none)}.r
     Streams (Ok streams) ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
+        <| fetchUnknownUsers streams
         { model
         | liveStreams = List.foldl (\s liveStreams ->
             Dict.insert s.userId s liveStreams
@@ -195,7 +205,9 @@ update msg model =
       (fetchNextUserStreamBatch requestLimit
         { model
         | liveStreams = Dict.empty
-        , pendingUserStreams = Dict.keys model.users
+        , pendingUserStreams = model.users
+          |> Dict.filter (\_ {persisted} -> persisted == True)
+          |> Dict.keys
         , previewVersion = model.previewVersion + 1
         }
         |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
@@ -306,7 +318,12 @@ importUser user =
   { id = user.id
   , displayName = user.displayName
   , tags = []
+  , persisted = False
   }
+
+persistUser : User -> User
+persistUser user =
+  {user | persisted = True}
 
 importGame : Helix.Game -> Game
 importGame game =
@@ -368,6 +385,15 @@ fetchNextGameBatch batch model =
     model
     |> appendRequests [fetchGames <| List.take batch missing]
 
+fetchUnknownUsers : List Stream -> Model -> Model
+fetchUnknownUsers streams model =
+  let known = Set.fromList <| Dict.keys model.users
+      required = Set.fromList <| List.map .userId streams
+      missing = Set.toList <| Set.diff required known
+  in
+    model
+    |> appendRequests [fetchUnknownUsersById missing]
+
 appendRequests : List (Cmd Msg) -> Model -> Model
 appendRequests cmds model = 
   { model
@@ -406,6 +432,19 @@ fetchUsersById ids =
       , auth = Nothing
       , decoder = Helix.users
       , tagger = Response << UserUpdate
+      , url = (fetchUsersByIdUrl ids)
+      }
+
+fetchUnknownUsersById : List String -> Cmd Msg
+fetchUnknownUsersById ids =
+  if List.isEmpty ids then
+    Cmd.none
+  else
+    Helix.send <|
+      { clientId = TwitchId.clientId
+      , auth = Nothing
+      , decoder = Helix.users
+      , tagger = Response << UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
 

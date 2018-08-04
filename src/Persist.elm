@@ -13,6 +13,7 @@ type alias User =
   { id : String
   , displayName : String
   , tags : List String
+  , persisted : Bool
   }
 
 type alias Game =

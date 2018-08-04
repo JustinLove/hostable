@@ -8,7 +8,7 @@ import Dict exposing (Dict)
 persist : Persist -> Value
 persist p =
   object
-    [ ("users", list <| List.map user p.users)
+    [ ("users", list <| List.map user <| List.filter .persisted p.users)
     , ("games", list <| List.map game p.games)
     , ("events", events p.events)
     ]
@@ -16,7 +16,7 @@ persist p =
 export : List User -> Value
 export us =
   object
-    [ ("users", list <| List.map user us)
+    [ ("users", list <| List.map user <| List.filter .persisted us)
     ]
 
 user : User -> Value
