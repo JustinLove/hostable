@@ -5,6 +5,8 @@ import Persist.Encode
 import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
 import Twitch.Helix as Helix
+import Twitch.Kraken.Decode as Kraken
+import Twitch.Kraken as Kraken
 import TwitchId
 import ScheduleGraph exposing (Event)
 import View
@@ -33,6 +35,7 @@ type Msg
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
+  | CommunityLookup (Result Http.Error Kraken.Community)
   | Response Msg
   | NextRequest Time
   | Focused (Result Dom.Error ())
@@ -82,7 +85,8 @@ init =
     , addingComment = Nothing
     , time = 0
     }
-  , Cmd.none
+  --, Cmd.none
+  , fetchCommunityByName "Devsauce"
   )
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -177,6 +181,17 @@ update msg model =
     Videos _ (Err error) ->
       let _ = Debug.log "video fetch error" error in
       (model, Cmd.none)
+    CommunityLookup (Ok community) ->
+      { model
+      | communities = Dict.insert
+          community.id
+          (importCommunity community)
+          model.communities
+      }
+      |> persist
+    CommunityLookup (Err error) ->
+      { e = Debug.log "community fetch error" error
+      , r = (model, Cmd.none)}.r
     Response subMsg ->
       update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
     NextRequest time ->
@@ -330,6 +345,12 @@ importGame game =
   { id = game.id
   , name = game.name
   , boxArtUrl = game.boxArtUrl
+  }
+
+importCommunity : Kraken.Community -> Community
+importCommunity community =
+  { id = community.id
+  , name = community.name
   }
 
 commentsForStream : String -> List (String, List String) -> List String
@@ -511,4 +532,18 @@ fetchVideos userId =
     , decoder = Helix.videos
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
+    }
+
+fetchCommunityByNameUrl : String -> String
+fetchCommunityByNameUrl name =
+  "https://api.twitch.tv/kraken/communities?name=" ++ (String.toLower name)
+
+fetchCommunityByName : String -> Cmd Msg
+fetchCommunityByName name =
+  Kraken.send <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = Kraken.community
+    , tagger = Response << CommunityLookup
+    , url = (fetchCommunityByNameUrl name)
     }
