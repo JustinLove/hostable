@@ -42,7 +42,7 @@ body {
   color: rgb(218, 216, 222);
 }
 header { display: flex; justify-content: space-between;}
-#streams { display: flex; flex-wrap: wrap; list-style-type: none;}
+.streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 200px; padding: 10px; }
 .graphics { width: 240px; height: 95px; position: relative; }
 .screen { width: 168px; height: 95px; position: absolute; right: 0;}
@@ -123,11 +123,35 @@ view model =
           ]
           [ text "export" ]
       ]
+    , h2 [] [text "Saved"]
     , model.liveStreams
       |> Dict.values
+      |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
-      |> Keyed.ul [ id "streams" ]
+      |> Keyed.ul [ id "streams", class "streams" ]
+    , model.communities
+      |> Dict.values
+      |> List.map (\{name, id} ->
+        div []
+          [ h2 [] [text name]
+          , model.liveStreams
+            |> Dict.values
+            |> List.filter (\stream ->
+              model.users
+                |> Dict.get stream.userId
+                |> Maybe.map (.persisted>>not)
+                |> Maybe.withDefault True
+              )
+            |> List.filter (\stream ->
+              List.member id stream.communityIds
+            )
+            |> List.sortBy (\stream -> -stream.viewerCount)
+            |> List.map (\stream -> (stream.channelId, (streamView model stream)))
+            |> Keyed.ul [ Html.Attributes.id id, class "streams" ]
+          ]
+        )
+      |> div []
     , displayFooter
     ]
 
