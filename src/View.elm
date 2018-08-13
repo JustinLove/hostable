@@ -30,6 +30,7 @@ type Msg
   | AddComment String
   | CreateComment String String
   | AddCommunity String
+  | RemoveCommunity String
 
 boxWidth = 70
 boxHeight = 95
@@ -145,7 +146,11 @@ view model =
       |> Dict.values
       |> List.map (\{name, id} ->
         div []
-          [ h2 [] [text name]
+          [ h2 []
+            [ text name
+            , text " "
+            , button [ onClick (RemoveCommunity id) ] [ text "X" ]
+            ]
           , model.liveStreams
             |> Dict.values
             |> List.filter (\stream ->

@@ -280,6 +280,10 @@ update msg model =
         )
       else
         (model, Cmd.none)
+    UI (View.RemoveCommunity id) ->
+      { model
+      | communities = Dict.remove id model.communities
+      } |> persist
 
 toUserDict : List User -> Dict String User
 toUserDict =
