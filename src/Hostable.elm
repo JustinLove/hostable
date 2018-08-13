@@ -1,6 +1,6 @@
 module Hostable exposing (..)
 
-import Persist exposing (Persist, User, Game, Community)
+import Persist exposing (Persist, Export, User, Game, Community)
 import Persist.Encode
 import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
@@ -28,7 +28,7 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
-  | Imported (Result String (List User))
+  | Imported (Result String Export)
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
@@ -69,15 +69,12 @@ init : (Model, Cmd Msg)
 init =
   ( { users = Dict.empty
     , games = Dict.empty
-    , communities = Dict.fromList
-      -- [ ("9d175334-ccdd-4da8-a3aa-d9631f95610e", Community "9d175334-ccdd-4da8-a3aa-d9631f95610e" "Programming")
-      [ ("a00aef10-3cd9-455c-831f-b2ac1d711950", Community "a00aef10-3cd9-455c-831f-b2ac1d711950" "Devsauce")
-      ]
+    , communities = Dict.empty
     , liveStreams = Dict.empty
     , events = Dict.empty
     , pendingUsers = []
     , pendingUserStreams = []
-    , pendingRequests = [ fetchCommunityByName "Devsauce" ]
+    , pendingRequests = []-- fetchCommunityByName "Devsauce" ]
     , outstandingRequests = 0
     , previewVersion = 0
     , selectedUser = Nothing
@@ -98,6 +95,7 @@ update msg model =
             | users = state.users |> toUserDict
             , games = state.games |> toGameDict
             , events = state.events
+            , communities = state.communities |> toCommunityDict
             , pendingUserStreams = List.map .id state.users
             }
           Nothing ->
@@ -105,15 +103,17 @@ update msg model =
         )
         |> fetchNextUserBatch requestLimit
         |> fetchNextUserStreamBatch requestLimit
-        |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
+        |> fetchCommunityStreams
       , Cmd.none)
-    Imported (Ok users) ->
+    Imported (Ok imported) ->
       { model
-      | users = users |> toUserDict
+      | users = imported.users |> toUserDict
+      , communities = imported.communities |> toCommunityDict
       , liveStreams = Dict.empty
-      , pendingUserStreams = List.map .id users
+      , pendingUserStreams = List.map .id imported.users
       }
       |> fetchNextUserStreamBatch requestLimit
+      |> fetchCommunityStreams
       |> persist
     Imported (Err err) ->
       (model, Cmd.none)
@@ -276,6 +276,10 @@ toGameDict : List Game -> Dict String Game
 toGameDict =
   List.map (\g -> (g.id, g)) >> Dict.fromList
 
+toCommunityDict : List Community -> Dict String Community
+toCommunityDict =
+  List.map (\c -> (c.id, c)) >> Dict.fromList
+
 addUsers : List User -> Dict String User -> Dict String User
 addUsers news olds =
   let
@@ -322,7 +326,11 @@ persist model =
 
 saveState : Model -> Cmd Msg
 saveState model =
-  Persist (Dict.values model.users) (Dict.values model.games) model.events
+  Persist
+      (Dict.values model.users)
+      (Dict.values model.games)
+      (Dict.values model.communities)
+      model.events
     |> Persist.Encode.persist
     |> Json.Encode.encode 0
     |> Harbor.save
@@ -415,6 +423,11 @@ fetchNextGameBatch batch model =
   in
     model
     |> appendRequests [fetchGames <| List.take batch missing]
+
+fetchCommunityStreams : Model -> Model
+fetchCommunityStreams model =
+  model
+    |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
 
 fetchUnknownUsers : List Stream -> Model -> Model
 fetchUnknownUsers streams model =

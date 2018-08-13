@@ -2,7 +2,7 @@ module View exposing (Msg(..), view)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
-import Persist exposing (User, Game)
+import Persist exposing (Export, User, Game)
 import Persist.Encode
 import ScheduleGraph exposing (..)
 
@@ -118,7 +118,7 @@ view model =
         ]
         []
       , a
-          [ href ("data:;base64," ++ (model.users |> Dict.values |> export |> Base64.encode))
+          [ href ("data:;base64," ++ (model |> export |> Base64.encode))
           , downloadAs "hostable.json"
           ]
           [ text "export" ]
@@ -301,9 +301,11 @@ icon name =
   svg [ Svg.Attributes.class ("icon icon-"++name) ]
     [ use [ xlinkHref ("#icon-"++name) ] [] ]
 
-export : List User -> String
-export users =
-  users
+--export : Model -> String
+export model =
+  Export
+      (model.users |> Dict.values)
+      (model.communities |> Dict.values)
     |> Persist.Encode.export
     |> Json.Encode.encode 2
 

@@ -1,4 +1,4 @@
-module Persist exposing (Persist, User, Game, Community, Event)
+module Persist exposing (Persist, Export, User, Game, Community, Event)
 
 import Dict exposing (Dict)
 import Time exposing (Time)
@@ -6,7 +6,13 @@ import Time exposing (Time)
 type alias Persist =
   { users : List User
   , games : List Game
+  , communities : List Community
   , events : Dict String (List Event)
+  }
+
+type alias Export =
+  { users : List User
+  , communities : List Community
   }
 
 type alias User =

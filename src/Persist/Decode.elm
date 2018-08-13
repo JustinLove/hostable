@@ -1,23 +1,32 @@
-module Persist.Decode exposing (persist, export, user, game, event)
+module Persist.Decode exposing (persist, export, user, game, community, event)
 
-import Persist exposing (Persist, User, Game, Event)
+import Persist exposing (Persist, Export, User, Game, Community, Event)
 
 import Json.Decode exposing (..)
 import Dict exposing (Dict)
 
 persist : Decoder Persist
 persist =
-  map3 Persist
+  map4 Persist
     (field "users" (list user))
     (field "games" (list game))
+    (oneOf
+      [ (field "communities" (list community))
+      , succeed []
+      ])
     (oneOf
       [ (field "events" (dict (list event)))
       , succeed Dict.empty
       ])
 
-export : Decoder (List User)
+export : Decoder Export
 export =
-  (field "users" (list user))
+  map2 Export
+    (field "users" (list user))
+    (oneOf
+      [ (field "communities" (list community))
+      , succeed []
+      ])
 
 user : Decoder User
 user =
@@ -37,6 +46,12 @@ game =
     (field "id" string)
     (field "name" string)
     (field "boxArtUrl" string)
+
+community : Decoder Community
+community =
+  map2 Community
+    (field "id" string)
+    (field "name" string)
 
 event : Decoder Event
 event =
