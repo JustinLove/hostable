@@ -228,7 +228,10 @@ update msg model =
       , Cmd.none)
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
-      if (List.filter (\u -> (String.toLower u.displayName) == lower) (Dict.values model.users)) == [] then
+      if (List.filter
+          (\u -> u.persisted && (String.toLower u.displayName) == lower)
+          (Dict.values model.users)
+        ) == [] then
         ( { model
           | pendingUsers = List.append model.pendingUsers [name]
           } |> fetchNextUserBatch requestLimit
@@ -238,8 +241,10 @@ update msg model =
         (model, Cmd.none)
     UI (View.RemoveChannel userId) ->
       { model
-      | users = Dict.remove userId model.users
-      , liveStreams = Dict.remove userId model.liveStreams
+      | users = Dict.update
+          userId
+          (\mu -> Maybe.map (\u -> {u|persisted = False}) mu)
+          model.users
       , selectedUser = Nothing
       } |> persist
     UI (View.SelectComment userId comment) ->
@@ -276,7 +281,13 @@ addUsers news olds =
   let
     onlyNew = Dict.insert
     both = \userId new old users ->
-      Dict.insert userId {old | displayName = new.displayName} users
+      Dict.insert
+        userId
+        { old
+        | displayName = new.displayName
+        , persisted = old.persisted || new.persisted
+        }
+        users
     onlyOld = Dict.insert
   in
   Dict.merge
