@@ -77,7 +77,7 @@ init =
     , events = Dict.empty
     , pendingUsers = []
     , pendingUserStreams = []
-    , pendingRequests = []
+    , pendingRequests = [ fetchCommunityByName "Devsauce" ]
     , outstandingRequests = 0
     , previewVersion = 0
     , selectedUser = Nothing
@@ -85,8 +85,7 @@ init =
     , addingComment = Nothing
     , time = 0
     }
-  --, Cmd.none
-  , fetchCommunityByName "Devsauce"
+  , Cmd.none
   )
 
 update: Msg -> Model -> (Model, Cmd Msg)
