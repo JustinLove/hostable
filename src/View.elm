@@ -20,15 +20,16 @@ import Json.Encode
 import Base64
 
 type Msg
-  = HostClicked String String
-  | Refresh
+  = Refresh
+  | Import Json.Decode.Value
   | AddChannel String
   | RemoveChannel String
+  | HostClicked String String
   | SelectComment String String
   | RemoveComment String String
   | AddComment String
   | CreateComment String String
-  | Import Json.Decode.Value
+  | AddCommunity String
 
 boxWidth = 70
 boxHeight = 95
@@ -130,6 +131,16 @@ view model =
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams", class "streams" ]
+    , div [ class "add-community" ]
+      [ label [ for "communityname" ] [ text "Add Community" ]
+      , input
+        [ type_ "text"
+        , id "communityname"
+        , name "communityname"
+        , value ""
+        , on "change" <| targetValue Json.Decode.string AddCommunity
+        ] []
+      ]
     , model.communities
       |> Dict.values
       |> List.map (\{name, id} ->

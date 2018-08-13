@@ -187,6 +187,7 @@ update msg model =
           (importCommunity community)
           model.communities
       }
+      |> appendRequests [fetchStreamsByCommunityIds [community.id]]
       |> persist
     CommunityLookup (Err error) ->
       { e = Debug.log "community fetch error" error
@@ -204,17 +205,6 @@ update msg model =
         _ -> (model, Cmd.none)
     Focused _ ->
       (model, Cmd.none)
-    UI (View.HostClicked userId controlId) ->
-      ( { model
-        | pendingRequests =
-          List.append model.pendingRequests
-            [ fetchUsersById [userId]
-            , fetchVideos userId
-            ]
-        , selectedUser = Just userId
-        }
-      , Harbor.select controlId
-      )
     UI (View.Refresh) ->
       (fetchNextUserStreamBatch requestLimit
         { model
@@ -226,6 +216,8 @@ update msg model =
         }
         |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
       , Cmd.none)
+    UI (View.Import files) ->
+      (model, Harbor.read files)
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
       if (List.filter
@@ -247,6 +239,17 @@ update msg model =
           model.users
       , selectedUser = Nothing
       } |> persist
+    UI (View.HostClicked userId controlId) ->
+      ( { model
+        | pendingRequests =
+          List.append model.pendingRequests
+            [ fetchUsersById [userId]
+            , fetchVideos userId
+            ]
+        , selectedUser = Just userId
+        }
+      , Harbor.select controlId
+      )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->
@@ -265,8 +268,18 @@ update msg model =
         | addingComment = Nothing
         , users = addComment userId comment model.users
       } |> persist
-    UI (View.Import files) ->
-      (model, Harbor.read files)
+    UI (View.AddCommunity name) ->
+      let lower = String.toLower name in
+      if (List.filter
+          (\c -> (String.toLower c.name) == lower)
+          (Dict.values model.communities)
+        ) == [] then
+        ( model
+          |> appendRequests [ fetchCommunityByName lower ]
+        , Cmd.none
+        )
+      else
+        (model, Cmd.none)
 
 toUserDict : List User -> Dict String User
 toUserDict =
