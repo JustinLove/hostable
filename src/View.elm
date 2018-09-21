@@ -327,7 +327,7 @@ displayFooter =
 icon : String -> Html msg
 icon name =
   svg [ Svg.Attributes.class ("icon icon-"++name) ]
-    [ use [ xlinkHref ("#icon-"++name) ] [] ]
+    [ use [ xlinkHref ("symbol-defs.svg#icon-"++name) ] [] ]
 
 --export : Model -> String
 export model =
