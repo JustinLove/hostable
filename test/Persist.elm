@@ -1,4 +1,4 @@
-import Persist exposing (Persist, User, Game, Event)
+import Persist exposing (Persist, User, Game, Community, Event)
 import Persist.Decode
 import Persist.Encode
 
@@ -9,6 +9,7 @@ import Runner exposing (runAll)
 import Html exposing (Html)
 import Json.Decode
 import Dict
+import Time
 
 main : Html msg
 main =
@@ -19,7 +20,7 @@ all = describe "serialization"
   [ it "roundtrips user" <| roundTrips
     Persist.Encode.user
     Persist.Decode.user
-    (User "1" "name")
+    (User "1" "name" ["Tag"] True)
   , it "roundtrips game" <| roundTrips
     Persist.Encode.game
     Persist.Decode.game
@@ -28,9 +29,10 @@ all = describe "serialization"
     Persist.Encode.persist
     Persist.Decode.persist
     ( Persist
-      [ (User "1" "name") ]
+      [ (User "1" "name" ["tag"] True) ]
       [ (Game "1" "name" "http://example.com") ]
-      (Dict.singleton "1" [ Event 0 1 ])
+      [ (Community "1" "name") ]
+      (Dict.singleton "1" [ Event (Time.millisToPosix 0) 1 ])
     )
   ]
 
