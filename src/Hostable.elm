@@ -1,5 +1,6 @@
 module Hostable exposing (..)
 
+import MeasureText
 import Persist exposing (Persist, Export, User, Game, Community)
 import Persist.Encode
 import Persist.Decode
@@ -12,12 +13,12 @@ import ScheduleGraph exposing (Event)
 import View
 import Harbor
 
-import Html
-import Dom
+import Browser
+import Browser.Dom as Dom
 import Task
 import Process
 import Http
-import Time exposing (Time)
+import Time exposing (Posix, Zone)
 import Set
 import Dict exposing (Dict)
 import Json.Decode
@@ -28,7 +29,7 @@ requestRate = 5
 
 type Msg
   = Loaded (Maybe Persist)
-  | Imported (Result String Export)
+  | Imported (Result Json.Decode.Error Export)
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
@@ -37,7 +38,9 @@ type Msg
   | Videos String (Result Http.Error (List Helix.Video))
   | CommunityLookup (Result Http.Error Kraken.Community)
   | Response Msg
-  | NextRequest Time
+  | NextRequest Posix
+  | CurrentZone Zone
+  | TextSize MeasureText.TextSize
   | Focused (Result Dom.Error ())
   | UI (View.Msg)
 
@@ -55,18 +58,20 @@ type alias Model =
   , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
   , addingComment : Maybe String
-  , time : Time
+  , time : Posix
+  , zone : Zone
+  , labelWidths : Dict String Float
   }
 
-main = Html.program
+main = Browser.document
   { init = init
   , update = update
   , subscriptions = subscriptions
-  , view = (\model -> Html.map UI (View.view model))
+  , view = View.document UI
   }
 
-init : (Model, Cmd Msg)
-init =
+init : () -> (Model, Cmd Msg)
+init _ =
   ( { users = Dict.empty
     , games = Dict.empty
     , communities = Dict.empty
@@ -80,9 +85,17 @@ init =
     , selectedUser = Nothing
     , selectedComment = Nothing
     , addingComment = Nothing
-    , time = 0
+    , time = Time.millisToPosix 0
+    , zone = Time.utc
+    , labelWidths = Dict.empty
     }
-  , Cmd.none
+  , Cmd.batch 
+    [ Task.perform CurrentZone Time.here
+    , ScheduleGraph.allDays
+      |> List.map ScheduleGraph.dayName
+      |> List.map (\name -> MeasureText.getTextWidth {font = "1px sans-serif", text = name})
+      |> Cmd.batch
+    ]
   )
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -203,6 +216,10 @@ update msg model =
             , time = time
             }, next)
         _ -> (model, Cmd.none)
+    CurrentZone zone ->
+      ( {model | zone = zone}, Cmd.none)
+    TextSize {text, width} ->
+      ( {model | labelWidths = Dict.insert text width model.labelWidths}, Cmd.none)
     Focused _ ->
       (model, Cmd.none)
     UI (View.Refresh) ->
@@ -358,9 +375,10 @@ subscriptions model =
     [ if List.isEmpty model.pendingRequests then
         Sub.none
       else
-        Time.every (Time.second/requestRate) NextRequest
+        Time.every (1000/requestRate) NextRequest
     , Harbor.loaded receiveLoaded
     , Harbor.fileContents receiveImported
+    , MeasureText.textSize TextSize
     ]
 
 importUser : Helix.User -> User

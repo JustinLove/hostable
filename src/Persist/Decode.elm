@@ -4,6 +4,7 @@ import Persist exposing (Persist, Export, User, Game, Community, Event)
 
 import Json.Decode exposing (..)
 import Dict exposing (Dict)
+import Time
 
 persist : Decoder Persist
 persist =
@@ -56,5 +57,5 @@ community =
 event : Decoder Event
 event =
   map2 Event
-    (field "start" float)
-    (field "duration" float)
+    (field "start" (map Time.millisToPosix int))
+    (field "duration" int)

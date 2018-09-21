@@ -1,7 +1,7 @@
 module Persist exposing (Persist, Export, User, Game, Community, Event)
 
 import Dict exposing (Dict)
-import Time exposing (Time)
+import Time exposing (Posix)
 
 type alias Persist =
   { users : List User
@@ -34,6 +34,6 @@ type alias Community =
   }
 
 type alias Event =
-  { start : Time
-  , duration : Time
+  { start : Posix
+  , duration : Int
   }

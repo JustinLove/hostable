@@ -1,4 +1,4 @@
-module View exposing (Msg(..), view)
+module View exposing (Msg(..), view, document)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -12,8 +12,8 @@ import Html.Events exposing (onClick, on)
 import Html.Keyed as Keyed
 import Svg exposing (svg, use)
 import Svg.Attributes exposing (xlinkHref)
+import Time
 import Color
-import Date exposing (Day(..))
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
@@ -93,6 +93,11 @@ a:link, a:visited { color: #b19dd8; }
 a:hover, a:active { color: rgb(218, 216, 222); }
 """
 
+document tagger model =
+  { title = "Hostable"
+  , body = [Html.map tagger (view model)]
+  }
+
 --view : Model -> Html Msg
 view model =
   div []
@@ -101,8 +106,8 @@ view model =
       [ div [ class "refresh" ] 
         [ button [onClick Refresh] [ text "Refresh" ]
         , text " Requests: "
-        , text <| toString
-        <| ((List.length model.pendingRequests) + model.outstandingRequests)
+        , text <| String.fromInt
+          <| ((List.length model.pendingRequests) + model.outstandingRequests)
         ]
       , div [ class "add-channel" ]
         [ label [ for "channelname" ] [ text "Add Channel" ]
@@ -121,7 +126,7 @@ view model =
         []
       , a
           [ href ("data:;base64," ++ (model |> export |> Base64.encode))
-          , downloadAs "hostable.json"
+          , download "hostable.json"
           ]
           [ text "export" ]
       ]
@@ -185,14 +190,14 @@ streamView model stream =
       [ displayBoxArt game
       , a [ href ("https://twitch.tv/"++name) ]
         [ div [ class "screen" ]
-          [ img [ class "preview", src ((imageTemplateUrl screenWidth screenHeight stream.thumbnailUrl) ++ "?" ++ (toString model.previewVersion)), width screenWidth, height screenHeight ] []
+          [ img [ class "preview", src ((imageTemplateUrl screenWidth screenHeight stream.thumbnailUrl) ++ "?" ++ (String.fromInt model.previewVersion)), width screenWidth, height screenHeight ] []
           ]
         ]
       ]
     , div [ class "info" ]
       [ div [ class "info-text" ]
         [ div [ class "viewers-channel" ]
-          [ span [ class "viewers" ] [ text <| toString stream.viewerCount ]
+          [ span [ class "viewers" ] [ text <| String.fromInt stream.viewerCount ]
           , input
             [ class "channel"
             , id ("host-" ++ name)
@@ -213,8 +218,10 @@ streamView model stream =
               scheduleGraph [ Svg.Attributes.class "schedule-graph"] <|
                 { width = 240
                 , height = 40
+                , labelWidths = model.labelWidths
                 , time = model.time
-                , days = [Date.dayOfWeek <| Date.fromTime model.time]
+                , zone = model.zone
+                , days = [Time.toWeekday model.zone model.time]
                 , events = List.filter (\e -> e.duration < (56 * 60 * 60 * 1000)) events
                 , style =
                   { dataColor = Color.rgb 100 65 164
@@ -236,9 +243,10 @@ streamView model stream =
 
 displayComment : Maybe (String, String) -> String -> String -> Html Msg
 displayComment selectedComment userId comment =
-  let selected = case selectedComment of
-    Just (id, com) -> id == userId && com == comment
-    Nothing -> False
+  let
+    selected = case selectedComment of
+      Just (id, com) -> id == userId && com == comment
+      Nothing -> False
   in
     if selected then
       li []
@@ -250,9 +258,10 @@ displayComment selectedComment userId comment =
 
 displayAddingComment : Maybe String -> String -> Html Msg
 displayAddingComment addingComment userId =
-  let adding = case addingComment of
-    Just id -> id == userId
-    Nothing -> False
+  let
+    adding = case addingComment of
+      Just id -> id == userId
+      Nothing -> False
   in
     if adding then
       li [ ]
@@ -284,12 +293,15 @@ displayBoxArt mgame =
         , width boxWidth
         , height boxHeight
         , title game.name
-        ] []
+        ]
+        []
     Nothing ->
       div
         [ class "box-art"
-        , style [ ("width", (toString boxWidth) ++ "px"), ("height", (toString boxHeight) ++ "px") ]
-        ] []
+        , style "width" ((String.fromInt boxWidth) ++ "px")
+        , style "height" ((String.fromInt boxHeight) ++ "px")
+        ]
+        []
 
 nameOfGame : Maybe Game -> String
 nameOfGame mgame =

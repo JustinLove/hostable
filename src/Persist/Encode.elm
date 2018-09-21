@@ -4,21 +4,22 @@ import Persist exposing (Persist, Export, User, Game, Community, Event)
 
 import Json.Encode exposing (..)
 import Dict exposing (Dict)
+import Time
 
 persist : Persist -> Value
 persist p =
   object
-    [ ("users", list <| List.map user <| List.filter .persisted p.users)
-    , ("games", list <| List.map game p.games)
-    , ("communities", list <| List.map community p.communities)
+    [ ("users", list user <| List.filter .persisted p.users)
+    , ("games", list game p.games)
+    , ("communities", list community p.communities)
     , ("events", events p.events)
     ]
 
 export : Export -> Value
 export e =
   object
-    [ ("users", list <| List.map user <| List.filter .persisted e.users)
-    , ("communities", list <| List.map community e.communities)
+    [ ("users", list user <| List.filter .persisted e.users)
+    , ("communities", list community e.communities)
     ]
 
 user : User -> Value
@@ -26,7 +27,7 @@ user u =
   object
     [ ("id", string u.id)
     , ("displayName", string u.displayName)
-    , ("tags", list <| List.map string u.tags)
+    , ("tags", list string u.tags)
     ]
 
 game : Game -> Value
@@ -47,13 +48,13 @@ community c =
 events : Dict String (List Event) -> Value
 events evts =
   evts
-    |> Dict.map (\_ es -> list <| List.map event es)
+    |> Dict.map (\_ es -> list event es)
     |> Dict.toList
     |> object
 
 event : Event -> Value
 event e =
   object
-    [ ("start", float e.start)
-    , ("duration", float e.duration)
+    [ ("start", int <| Time.posixToMillis e.start)
+    , ("duration", int e.duration)
     ]
