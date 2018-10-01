@@ -36,7 +36,6 @@ type Msg
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
-  | CommunityLookup (Result Http.Error Kraken.Community)
   | Response Msg
   | NextRequest Posix
   | CurrentZone Zone
@@ -116,7 +115,6 @@ update msg model =
         )
         |> fetchNextUserBatch requestLimit
         |> fetchNextUserStreamBatch requestLimit
-        |> fetchCommunityStreams
       , Cmd.none)
     Imported (Ok imported) ->
       { model
@@ -126,7 +124,6 @@ update msg model =
       , pendingUserStreams = List.map .id imported.users
       }
       |> fetchNextUserStreamBatch requestLimit
-      |> fetchCommunityStreams
       |> persist
     Imported (Err err) ->
       (model, Cmd.none)
@@ -193,18 +190,6 @@ update msg model =
     Videos _ (Err error) ->
       let _ = Debug.log "video fetch error" error in
       (model, Cmd.none)
-    CommunityLookup (Ok community) ->
-      { model
-      | communities = Dict.insert
-          community.id
-          (importCommunity community)
-          model.communities
-      }
-      |> appendRequests [fetchStreamsByCommunityIds [community.id]]
-      |> persist
-    CommunityLookup (Err error) ->
-      { e = Debug.log "community fetch error" error
-      , r = (model, Cmd.none)}.r
     Response subMsg ->
       update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
     NextRequest time ->
@@ -231,7 +216,6 @@ update msg model =
           |> Dict.keys
         , previewVersion = model.previewVersion + 1
         }
-        |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
       , Cmd.none)
     UI (View.Import files) ->
       (model, Harbor.read files)
@@ -443,11 +427,6 @@ fetchNextGameBatch batch model =
     model
     |> appendRequests [fetchGames <| List.take batch missing]
 
-fetchCommunityStreams : Model -> Model
-fetchCommunityStreams model =
-  model
-    |> appendRequests [fetchStreamsByCommunityIds <| Dict.keys model.communities]
-
 fetchUnknownUsers : List Stream -> Model -> Model
 fetchUnknownUsers streams model =
   let known = Set.fromList <| Dict.keys model.users
@@ -528,23 +507,6 @@ fetchStreamsByUserIds userIds =
       , url = (fetchStreamsByUserIdsUrl userIds)
       }
 
-fetchStreamsByCommunityIdsUrl : List String -> String
-fetchStreamsByCommunityIdsUrl communityIds =
-  "https://api.twitch.tv/helix/streams?type=live&first=100&community_id=" ++ (String.join "&community_id=" communityIds)
-
-fetchStreamsByCommunityIds : List String -> Cmd Msg
-fetchStreamsByCommunityIds communityIds =
-  if List.isEmpty communityIds then
-    Cmd.none
-  else
-    Helix.send <|
-      { clientId = TwitchId.clientId
-      , auth = Nothing
-      , decoder = Helix.streams
-      , tagger = Response << Streams
-      , url = (fetchStreamsByCommunityIdsUrl communityIds)
-      }
-
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
   "https://api.twitch.tv/helix/games?id=" ++ (String.join "&id=" gameIds)
@@ -574,18 +536,4 @@ fetchVideos userId =
     , decoder = Helix.videos
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
-    }
-
-fetchCommunityByNameUrl : String -> String
-fetchCommunityByNameUrl name =
-  "https://api.twitch.tv/kraken/communities?name=" ++ (String.toLower name)
-
-fetchCommunityByName : String -> Cmd Msg
-fetchCommunityByName name =
-  Kraken.send <|
-    { clientId = TwitchId.clientId
-    , auth = Nothing
-    , decoder = Kraken.community
-    , tagger = Response << CommunityLookup
-    , url = (fetchCommunityByNameUrl name)
     }
