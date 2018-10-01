@@ -1,5 +1,6 @@
 module Hostable exposing (..)
 
+import LocalStorage
 import MeasureText
 import Persist exposing (Persist, Export, User, Game)
 import Persist.Encode
@@ -325,8 +326,7 @@ saveState model =
       (Dict.values model.games)
       model.events
     |> Persist.Encode.persist
-    |> Json.Encode.encode 0
-    |> Harbor.save
+    |> LocalStorage.saveJson
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -335,7 +335,7 @@ subscriptions model =
         Sub.none
       else
         Time.every (1000/requestRate) NextRequest
-    , Harbor.loaded receiveLoaded
+    , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , Harbor.fileContents receiveImported
     , MeasureText.textSize TextSize
     ]
@@ -371,18 +371,6 @@ commentIfMatch userName (name, comments) =
     Just comments
   else
     Nothing
-
-
-receiveLoaded : Maybe String -> Msg
-receiveLoaded mstring =
-  mstring
-    |> Maybe.andThen (\string ->
-      string
-       |> Json.Decode.decodeString Persist.Decode.persist
-       |> Result.mapError (Debug.log "persist decode error")
-       |> Result.toMaybe
-      )
-    |> Loaded
 
 receiveImported : String -> Msg
 receiveImported string =

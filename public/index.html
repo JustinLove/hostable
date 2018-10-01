@@ -38,12 +38,12 @@
 
   var key = 'hostable'
 
-  app.ports.save.subscribe(function(value) {
+  app.ports.localStorageSave.subscribe(function(value) {
     localStorage.setItem(key, value)
   })
 
   var loaded = localStorage.getItem(key)
-  app.ports.loaded.send(loaded)
+  app.ports.localStorageLoaded.send(loaded)
 
   app.ports.read.subscribe(function(files) {
     for (var i = 0; i < files.length; i++) {
