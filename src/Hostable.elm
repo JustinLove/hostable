@@ -285,22 +285,6 @@ update msg model =
         | addingComment = Nothing
         , users = addComment userId comment model.users
       } |> persist
-    UI (View.AddCommunity name) ->
-      let lower = String.toLower name in
-      if (List.filter
-          (\c -> (String.toLower c.name) == lower)
-          (Dict.values model.communities)
-        ) == [] then
-        ( model
-          |> appendRequests [ fetchCommunityByName lower ]
-        , Cmd.none
-        )
-      else
-        (model, Cmd.none)
-    UI (View.RemoveCommunity id) ->
-      { model
-      | communities = Dict.remove id model.communities
-      } |> persist
 
 toUserDict : List User -> Dict String User
 toUserDict =

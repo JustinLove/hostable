@@ -29,8 +29,6 @@ type Msg
   | RemoveComment String String
   | AddComment String
   | CreateComment String String
-  | AddCommunity String
-  | RemoveCommunity String
 
 boxWidth = 70
 boxHeight = 95
@@ -137,42 +135,6 @@ view model =
       |> List.sortBy (\stream -> -stream.viewerCount)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams", class "streams" ]
-    , div [ class "add-community" ]
-      [ label [ for "communityname" ] [ text "Add Community" ]
-      , input
-        [ type_ "text"
-        , id "communityname"
-        , name "communityname"
-        , value ""
-        , on "change" <| targetValue Json.Decode.string AddCommunity
-        ] []
-      ]
-    , model.communities
-      |> Dict.values
-      |> List.map (\{name, id} ->
-        div []
-          [ h2 []
-            [ text name
-            , text " "
-            , button [ onClick (RemoveCommunity id) ] [ text "X" ]
-            ]
-          , model.liveStreams
-            |> Dict.values
-            |> List.filter (\stream ->
-              model.users
-                |> Dict.get stream.userId
-                |> Maybe.map (.persisted>>not)
-                |> Maybe.withDefault True
-              )
-            |> List.filter (\stream ->
-              List.member id stream.communityIds
-            )
-            |> List.sortBy (\stream -> -stream.viewerCount)
-            |> List.map (\stream -> (stream.channelId, (streamView model stream)))
-            |> Keyed.ul [ Html.Attributes.id id, class "streams" ]
-          ]
-        )
-      |> div []
     , displayFooter
     ]
 
