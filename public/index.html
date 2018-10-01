@@ -23,7 +23,7 @@
     app.ports.textSize.send({text: params.text, width: metrics.width})
   })
 
-  app.ports.select.subscribe(function(id) {
+  app.ports.selectCopy.subscribe(function(id) {
     var el = document.getElementById(id)
     el.focus()
     el.select()

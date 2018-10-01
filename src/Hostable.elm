@@ -11,9 +11,9 @@ import Twitch.Helix as Helix
 import Twitch.Kraken.Decode as Kraken
 import Twitch.Kraken as Kraken
 import TwitchId
+import SelectCopy
 import ScheduleGraph exposing (Event)
 import View
-import Harbor
 
 import Browser
 import Browser.Dom as Dom
@@ -247,7 +247,7 @@ update msg model =
             ]
         , selectedUser = Just userId
         }
-      , Harbor.select controlId
+      , SelectCopy.selectCopy controlId
       )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
