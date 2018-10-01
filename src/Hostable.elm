@@ -1,7 +1,7 @@
 module Hostable exposing (..)
 
 import MeasureText
-import Persist exposing (Persist, Export, User, Game, Community)
+import Persist exposing (Persist, Export, User, Game)
 import Persist.Encode
 import Persist.Decode
 import Twitch.Helix.Decode as Helix exposing (Stream)
@@ -46,7 +46,6 @@ type Msg
 type alias Model =
   { users : Dict String User
   , games : Dict String Game
-  , communities : Dict String Community
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
   , pendingUsers : List String
@@ -73,7 +72,6 @@ init : () -> (Model, Cmd Msg)
 init _ =
   ( { users = Dict.empty
     , games = Dict.empty
-    , communities = Dict.empty
     , liveStreams = Dict.empty
     , events = Dict.empty
     , pendingUsers = []
@@ -107,7 +105,6 @@ update msg model =
             | users = state.users |> toUserDict
             , games = state.games |> toGameDict
             , events = state.events
-            , communities = state.communities |> toCommunityDict
             , pendingUserStreams = List.map .id state.users
             }
           Nothing ->
@@ -119,7 +116,6 @@ update msg model =
     Imported (Ok imported) ->
       { model
       | users = imported.users |> toUserDict
-      , communities = imported.communities |> toCommunityDict
       , liveStreams = Dict.empty
       , pendingUserStreams = List.map .id imported.users
       }
@@ -278,10 +274,6 @@ toGameDict : List Game -> Dict String Game
 toGameDict =
   List.map (\g -> (g.id, g)) >> Dict.fromList
 
-toCommunityDict : List Community -> Dict String Community
-toCommunityDict =
-  List.map (\c -> (c.id, c)) >> Dict.fromList
-
 addUsers : List User -> Dict String User -> Dict String User
 addUsers news olds =
   let
@@ -331,7 +323,6 @@ saveState model =
   Persist
       (Dict.values model.users)
       (Dict.values model.games)
-      (Dict.values model.communities)
       model.events
     |> Persist.Encode.persist
     |> Json.Encode.encode 0
@@ -366,12 +357,6 @@ importGame game =
   { id = game.id
   , name = game.name
   , boxArtUrl = game.boxArtUrl
-  }
-
-importCommunity : Kraken.Community -> Community
-importCommunity community =
-  { id = community.id
-  , name = community.name
   }
 
 commentsForStream : String -> List (String, List String) -> List String

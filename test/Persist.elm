@@ -1,4 +1,4 @@
-import Persist exposing (Persist, User, Game, Community, Event)
+import Persist exposing (Persist, User, Game, Event)
 import Persist.Decode
 import Persist.Encode
 
@@ -31,7 +31,6 @@ all = describe "serialization"
     ( Persist
       [ (User "1" "name" ["tag"] True) ]
       [ (Game "1" "name" "http://example.com") ]
-      [ (Community "1" "name") ]
       (Dict.singleton "1" [ Event (Time.millisToPosix 0) 1 ])
     )
   ]

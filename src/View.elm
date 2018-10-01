@@ -295,7 +295,6 @@ icon name =
 export model =
   Export
       (model.users |> Dict.values)
-      (model.communities |> Dict.values)
     |> Persist.Encode.export
     |> Json.Encode.encode 2
 
