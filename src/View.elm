@@ -1,5 +1,6 @@
 module View exposing (Msg(..), view, document)
 
+import FileInput
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (Export, User, Game)
@@ -119,7 +120,7 @@ view model =
         ]
       , input
         [ type_ "file"
-        , on "change" (targetFiles Import)
+        , on "change" (FileInput.targetFiles Import)
         ]
         []
       , a
@@ -302,10 +303,3 @@ targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =
   Json.Decode.map tagger
     (Json.Decode.at ["target", "value" ] decoder)
-
-
-targetFiles : (Json.Decode.Value -> msg) -> Json.Decode.Decoder msg
-targetFiles tagger =
-  (Json.Decode.at ["target", "files"] Json.Decode.value)
-    |> Json.Decode.map tagger
-    --|> Json.Decode.map (Debug.log "files")

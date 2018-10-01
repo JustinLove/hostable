@@ -1,5 +1,6 @@
 module Hostable exposing (..)
 
+import FileInput
 import LocalStorage
 import MeasureText
 import Persist exposing (Persist, Export, User, Game)
@@ -215,7 +216,7 @@ update msg model =
         }
       , Cmd.none)
     UI (View.Import files) ->
-      (model, Harbor.read files)
+      (model, FileInput.read files)
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
       if (List.filter
@@ -336,7 +337,7 @@ subscriptions model =
       else
         Time.every (1000/requestRate) NextRequest
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
-    , Harbor.fileContents receiveImported
+    , FileInput.fileContents receiveImported
     , MeasureText.textSize TextSize
     ]
 
