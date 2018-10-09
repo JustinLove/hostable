@@ -78,7 +78,18 @@ header { display: flex; justify-content: space-between;}
 }
 
 .games { display: flex; flex-wrap: wrap; list-style-type: none;}
-.game { width: 70px; height: 60px; padding: 10px; position: relative;}
+.game { padding: 10px; position: relative;}
+.score {
+  background: rgb(100, 65, 164);
+  color: white;
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: auto;
+}
 
 svg.icon {
   display: inline-block;
@@ -274,6 +285,11 @@ gameView model game =
     , style "height" ((String.fromInt boxHeight) ++ "px")
     ]
     [ displayBoxArt (Just game)
+    , case game.score of
+      Just score ->
+        div [ class "score" ] [ text <| String.fromFloat score ]
+      Nothing ->
+        text ""
     ]
 
 userFor : Dict String User -> Stream -> Maybe User

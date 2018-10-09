@@ -278,7 +278,7 @@ toUserDict =
 
 toGameDict : List Game -> Dict String Game
 toGameDict =
-  List.map (\g -> (g.id, {g | score = Just (rankGame g.name)})) >> Dict.fromList
+  List.map (\g -> (g.id, {g | score = rankGame g.name})) >> Dict.fromList
 
 addUsers : List User -> Dict String User -> Dict String User
 addUsers news olds =
@@ -362,11 +362,21 @@ importGame game =
   { id = game.id
   , name = game.name
   , boxArtUrl = game.boxArtUrl
-  , score = Just (rankGame game.name)
+  , score = rankGame game.name
   }
 
-rankGame : String -> Float
+rankGame : String -> Maybe Float
 rankGame name =
+  let
+    score = rankGame_ name
+  in
+  if score == 1.0 then
+    Nothing
+  else
+    Just score
+
+rankGame_ : String -> Float
+rankGame_ name =
   case name of
     "Astroneer" -> 2.0
     "Crypt of the NecroDancer" -> 1.5
