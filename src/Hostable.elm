@@ -48,6 +48,7 @@ type Msg
 type alias Model =
   { users : Dict String User
   , games : Dict String Game
+  , scoredTags : Dict String Float
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
   , pendingUsers : List String
@@ -74,6 +75,7 @@ init : () -> (Model, Cmd Msg)
 init _ =
   ( { users = Dict.empty
     , games = Dict.empty
+    , scoredTags = Dict.empty
     , liveStreams = Dict.empty
     , events = Dict.empty
     , pendingUsers = []
@@ -106,6 +108,7 @@ update msg model =
             { model
             | users = state.users |> toUserDict
             , games = state.games |> toGameDict
+            , scoredTags = tagRanks state.users
             , events = state.events
             , pendingUserStreams = List.map .id state.users
             }
@@ -118,6 +121,7 @@ update msg model =
     Imported (Ok imported) ->
       { model
       | users = imported.users |> toUserDict
+      , scoredTags = tagRanks imported.users
       , liveStreams = Dict.empty
       , pendingUserStreams = List.map .id imported.users
       }
@@ -385,6 +389,42 @@ rankGame name =
     "TerraTech" -> 1.5
     "They Are Billions" -> 1.5
     _ -> 1.0
+
+tagRanks : List User -> Dict String Float
+tagRanks users =
+  users
+    |> List.concatMap .tags
+    |> List.foldr (\tag dict ->
+      let
+        score = rankTag tag
+      in
+      if score == 1.0 then
+        dict
+      else
+        Dict.insert tag (rankTag tag) dict
+    ) Dict.empty
+
+rankTag : String -> Float
+rankTag tag =
+  let
+    ltag = String.toLower tag
+  in
+  if String.contains "some swear" ltag then
+    0.6
+  else if String.contains "occasional swear" ltag then
+    0.6
+  else if String.contains "frequent swear" ltag then
+    0.25
+  else if String.contains "swear" ltag then
+    0.5
+  else if String.contains "low music" ltag then
+    0.75
+  else if String.contains "music" ltag then
+    0.5
+  else if String.contains "kbps" ltag then
+    0.75
+  else
+    1.0
 
 
 commentsForStream : String -> List (String, List String) -> List String
