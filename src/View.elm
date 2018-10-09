@@ -76,6 +76,10 @@ header { display: flex; justify-content: space-between;}
   background-color: grey;
   border-radius: 0.2em;
 }
+
+.games { display: flex; flex-wrap: wrap; list-style-type: none;}
+.game { width: 70px; height: 60px; padding: 10px; position: relative;}
+
 svg.icon {
   display: inline-block;
   width: 1em;
@@ -135,6 +139,10 @@ view model =
       |> List.sortBy ((rankStream model)>>negate)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams", class "streams" ]
+    , model.games
+      |> Dict.map (\_ game -> gameView model game)
+      |> Dict.toList
+      |> Keyed.ul [ id "games", class "games" ]
     , displayFooter
     ]
 
@@ -256,6 +264,16 @@ rankStream model stream =
     (*)
     (game / (toFloat (stream.viewerCount + 1)))
     (List.filterMap (\tag -> Dict.get tag model.scoredTags) tags)
+
+--gameView : Model -> Game -> Html Msg
+gameView model game =
+  li
+    [ class "game"
+    , style "width" ((String.fromInt boxWidth) ++ "px")
+    , style "height" ((String.fromInt boxHeight) ++ "px")
+    ]
+    [ displayBoxArt (Just game)
+    ]
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
