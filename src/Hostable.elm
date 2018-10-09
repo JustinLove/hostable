@@ -169,7 +169,7 @@ update msg model =
     Games (Ok news) ->
       { model
       | games = List.foldl (\g games ->
-          Dict.insert g.id g games
+          Dict.insert g.id (importGame g) games
         ) model.games news
       }
       |> persist
@@ -274,7 +274,7 @@ toUserDict =
 
 toGameDict : List Game -> Dict String Game
 toGameDict =
-  List.map (\g -> (g.id, g)) >> Dict.fromList
+  List.map (\g -> (g.id, {g | score = Just (rankGame g.name)})) >> Dict.fromList
 
 addUsers : List User -> Dict String User -> Dict String User
 addUsers news olds =
@@ -358,7 +358,34 @@ importGame game =
   { id = game.id
   , name = game.name
   , boxArtUrl = game.boxArtUrl
+  , score = Just (rankGame game.name)
   }
+
+rankGame : String -> Float
+rankGame name =
+  Debug.log "score" <| case Debug.log "name" name of
+    "Astroneer" -> 2.0
+    "Crypt of the NecroDancer" -> 1.5
+    "Cultist Simulator" -> 1.5
+    "Darkest Dungeon" -> 1.5
+    "Factorio" -> 2.0
+    "Faeria" -> 1.5
+    "Fortnite" -> 0.5
+    "Frostpunk" -> 1.5
+    "Into the Breach" -> 1.5
+    "One Hour One Life" -> 2.0
+    "Overwatch" -> 0.5
+    "Oxygen Not Included" -> 2.0
+    "RimWorld" -> 1.5
+    "Science & Technology" -> 2.0
+    "Slay the Spire" -> 1.5
+    "Slime Rancher" -> 1.5
+    "Stardew Valley" -> 1.5
+    "Subnautica" -> 2.0
+    "TerraTech" -> 1.5
+    "They Are Billions" -> 1.5
+    _ -> 1.0
+
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =

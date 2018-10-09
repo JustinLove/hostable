@@ -24,6 +24,7 @@ type alias Game =
   { id : String
   , name : String
   , boxArtUrl : String
+  , score : Maybe Float
   }
 
 type alias Event =

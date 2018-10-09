@@ -35,10 +35,11 @@ user =
 
 game : Decoder Game
 game =
-  map3 Game
+  map4 Game
     (field "id" string)
     (field "name" string)
     (field "boxArtUrl" string)
+    (succeed Nothing)
 
 event : Decoder Event
 event =
