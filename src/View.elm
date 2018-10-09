@@ -251,11 +251,11 @@ rankStream model stream =
   let
     muser = userFor model.users stream
     tags = muser |> Maybe.map .tags |> Maybe.withDefault []
-    --game = gameFor model.games stream
+    game = rankGame <| nameOfGame <| gameFor model.games stream
   in
   List.foldr
     (*)
-    (1.0 / (toFloat (stream.viewerCount + 1)))
+    (game / (toFloat (stream.viewerCount + 1)))
     (List.map rankTag tags)
 
 rankTag : String -> Float
@@ -263,7 +263,9 @@ rankTag tag =
   let
     ltag = String.toLower tag
   in
-  if String.contains "swear" ltag then
+  if String.contains "some swear" ltag then
+    0.6
+  else if String.contains "swear" ltag then
     0.5
   else if String.contains "low music" ltag then
     0.75
@@ -273,6 +275,31 @@ rankTag tag =
     0.75
   else
     1.0
+
+rankGame : String -> Float
+rankGame name =
+  Debug.log "score" <| case Debug.log "name" name of
+    "Astroneer" -> 2.0
+    "Crypt of the NecroDancer" -> 1.5
+    "Cultist Simulator" -> 1.5
+    "Darkest Dungeon" -> 1.5
+    "Factorio" -> 2.0
+    "Faeria" -> 1.5
+    "Fortnite" -> 0.5
+    "Frostpunk" -> 1.5
+    "Into the Breach" -> 1.5
+    "One Hour One Life" -> 2.0
+    "Overwatch" -> 0.5
+    "Oxygen Not Included" -> 2.0
+    "RimWorld" -> 1.5
+    "Science & Technology" -> 2.0
+    "Slay the Spire" -> 1.5
+    "Slime Rancher" -> 1.5
+    "Stardew Valley" -> 1.5
+    "Subnautica" -> 2.0
+    "TerraTech" -> 1.5
+    "They Are Billions" -> 1.5
+    _ -> 1.0
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
