@@ -363,7 +363,7 @@ importGame game =
 
 rankGame : String -> Float
 rankGame name =
-  Debug.log "score" <| case Debug.log "name" name of
+  case name of
     "Astroneer" -> 2.0
     "Crypt of the NecroDancer" -> 1.5
     "Cultist Simulator" -> 1.5

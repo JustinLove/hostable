@@ -249,6 +249,7 @@ displayAddingComment addingComment userId =
 --rankStream : Model -> Stream -> Float
 rankStream model stream =
   let
+    rankedTags = tagRanks model.users
     muser = userFor model.users stream
     tags = muser |> Maybe.map .tags |> Maybe.withDefault []
     game = gameFor model.games stream |> Maybe.andThen .score |> Maybe.withDefault 1.0
@@ -256,7 +257,22 @@ rankStream model stream =
   List.foldr
     (*)
     (game / (toFloat (stream.viewerCount + 1)))
-    (List.map rankTag tags)
+    (List.filterMap (\tag -> Dict.get tag rankedTags) tags)
+
+tagRanks : Dict String User -> Dict String Float
+tagRanks users =
+  users
+    |> Dict.values
+    |> List.concatMap .tags
+    |> List.foldr (\tag dict ->
+      let
+        score = rankTag tag
+      in
+      if score == 1.0 then
+        dict
+      else
+        Dict.insert tag (rankTag tag) dict
+    ) Dict.empty
 
 rankTag : String -> Float
 rankTag tag =
