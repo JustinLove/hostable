@@ -129,7 +129,6 @@ view model =
           ]
           [ text "export" ]
       ]
-    , h2 [] [text "Saved"]
     , model.liveStreams
       |> Dict.values
       |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
