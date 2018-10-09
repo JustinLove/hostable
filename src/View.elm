@@ -140,8 +140,9 @@ view model =
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams", class "streams" ]
     , model.games
-      |> Dict.map (\_ game -> gameView model game)
       |> Dict.toList
+      |> List.sortBy (\(_, game) -> game.name)
+      |> List.map (\(key, game) -> (key, gameView model game))
       |> Keyed.ul [ id "games", class "games" ]
     , displayFooter
     ]
