@@ -133,7 +133,7 @@ view model =
     , model.liveStreams
       |> Dict.values
       |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
-      |> List.sortBy (\stream -> -stream.viewerCount)
+      |> List.sortBy ((rankStream model)>>negate)
       |> List.map (\stream -> (stream.channelId, (streamView model stream)))
       |> Keyed.ul [ id "streams", class "streams" ]
     , displayFooter
@@ -153,7 +153,15 @@ streamView model stream =
       [ displayBoxArt game
       , a [ href ("https://twitch.tv/"++name) ]
         [ div [ class "screen" ]
-          [ img [ class "preview", src ((imageTemplateUrl screenWidth screenHeight stream.thumbnailUrl) ++ "?" ++ (String.fromInt model.previewVersion)), width screenWidth, height screenHeight ] []
+          [ img
+            [ class "preview"
+            , src
+              ( (imageTemplateUrl screenWidth screenHeight stream.thumbnailUrl)
+              ++ "?" ++ (String.fromInt model.previewVersion)
+              )
+            , width screenWidth
+            , height screenHeight
+            ] []
           ]
         ]
       ]
@@ -237,6 +245,34 @@ displayAddingComment addingComment userId =
         ]
     else
       li [ onClick (AddComment userId) ] [ text "+"]
+
+--rankStream : Model -> Stream -> Float
+rankStream model stream =
+  let
+    muser = userFor model.users stream
+    tags = muser |> Maybe.map .tags |> Maybe.withDefault []
+    --game = gameFor model.games stream
+  in
+  List.foldr
+    (*)
+    (1.0 / (toFloat (stream.viewerCount + 1)))
+    (List.map rankTag tags)
+
+rankTag : String -> Float
+rankTag tag =
+  let
+    ltag = String.toLower tag
+  in
+  if String.contains "swear" ltag then
+    0.5
+  else if String.contains "low music" ltag then
+    0.75
+  else if String.contains "music" ltag then
+    0.5
+  else if String.contains "kbps" ltag then
+    0.75
+  else
+    1.0
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
