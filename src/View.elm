@@ -126,47 +126,49 @@ document tagger model =
 view model =
   div []
     [ node "style" [] [ text css ]
-    , header []
-      [ div [ class "refresh" ] 
-        [ button [onClick Refresh] [ text "Refresh" ]
-        , text " Requests: "
-        , text <| String.fromInt
-          <| ((List.length model.pendingRequests) + model.outstandingRequests)
-        ]
-      , div [ class "add-channel" ]
-        [ label [ for "channelname" ] [ text "Add Channel" ]
-        , input
-          [ type_ "text"
-          , id "channelname"
-          , name "channelname"
-          , value ""
-          , on "change" <| targetValue Json.Decode.string AddChannel
-          ] []
-        ]
-      , input
-        [ type_ "file"
-        , on "change" (FileInput.targetFiles Import)
-        ]
-        []
-      , a
-          [ href ("data:;base64," ++ (model |> export |> Base64.encode))
-          , download "hostable.json"
-          ]
-          [ text "export" ]
-      ]
-    , model.liveStreams
-      |> Dict.values
-      |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
-      |> List.sortBy ((rankStream model)>>negate)
-      |> List.map (\stream -> (stream.channelId, (streamView model stream)))
-      |> Keyed.ul [ id "streams", class "streams" ]
-    , model.games
-      |> Dict.toList
-      |> List.sortBy (\(_, game) -> game.name)
-      |> List.map (\(key, game) -> (key, gameView model game))
-      |> Keyed.ul [ id "games", class "games" ]
+    , headerView model
+    , liveStreamsView model
+    , gamesView model
     , displayFooter
     ]
+
+headerView model =
+  header []
+    [ div [ class "refresh" ] 
+      [ button [onClick Refresh] [ text "Refresh" ]
+      , text " Requests: "
+      , text <| String.fromInt
+        <| ((List.length model.pendingRequests) + model.outstandingRequests)
+      ]
+    , div [ class "add-channel" ]
+      [ label [ for "channelname" ] [ text "Add Channel" ]
+      , input
+        [ type_ "text"
+        , id "channelname"
+        , name "channelname"
+        , value ""
+        , on "change" <| targetValue Json.Decode.string AddChannel
+        ] []
+      ]
+    , input
+      [ type_ "file"
+      , on "change" (FileInput.targetFiles Import)
+      ]
+      []
+    , a
+        [ href ("data:;base64," ++ (model |> export |> Base64.encode))
+        , download "hostable.json"
+        ]
+        [ text "export" ]
+    ]
+
+liveStreamsView model =
+  model.liveStreams
+    |> Dict.values
+    |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
+    |> List.sortBy ((rankStream model)>>negate)
+    |> List.map (\stream -> (stream.channelId, (streamView model stream)))
+    |> Keyed.ul [ id "streams", class "streams" ]
 
 --streamView : Model -> Stream -> Html Msg
 streamView model stream =
@@ -281,6 +283,13 @@ rankStream model stream =
     (*)
     (game / (toFloat (stream.viewerCount + 1)))
     (List.filterMap (\tag -> Dict.get tag model.scoredTags) tags)
+
+gamesView model =
+  model.games
+    |> Dict.toList
+    |> List.sortBy (\(_, game) -> game.name)
+    |> List.map (\(key, game) -> (key, gameView model game))
+    |> Keyed.ul [ id "games", class "games" ]
 
 --gameView : Model -> Game -> Html Msg
 gameView model game =
