@@ -9,7 +9,7 @@ import ScheduleGraph exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, on)
+import Html.Events exposing (onClick, on, preventDefaultOn)
 import Html.Keyed as Keyed
 import Svg exposing (svg, use)
 import Svg.Attributes exposing (xlinkHref)
@@ -31,6 +31,7 @@ type Msg
   | AddComment String
   | CreateComment String String
   | SelectGame String
+  | UpdateGameScore String Float
 
 boxWidth = 70
 boxHeight = 95
@@ -297,11 +298,15 @@ gameView model game =
         , name "edit-game-score"
         , step "0.1"
         , value (game.score |> Maybe.withDefault 1.0 |> String.fromFloat)
-        --, on "change" <| targetValue Json.Decode.string (CreateComment userId)
+        , on "blur" <| targetValue decodeFloat (UpdateGameScore game.id)
         ] []
       ]
     else
-      [ a [ onClick (SelectGame game.id)]
+      [ a
+        [ preventDefaultOn "click"
+          (Json.Decode.succeed (SelectGame game.id, True))
+        , href "#"
+        ]
         [ displayBoxArt (Just game)
         , case game.score of
           Just score ->
@@ -376,3 +381,11 @@ targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =
   Json.Decode.map tagger
     (Json.Decode.at ["target", "value" ] decoder)
+
+decodeFloat : Json.Decode.Decoder Float
+decodeFloat =
+  Json.Decode.string
+    |> Json.Decode.andThen (\s -> case String.toFloat s of
+      Just n -> Json.Decode.succeed n
+      Nothing -> Json.Decode.fail s
+    )

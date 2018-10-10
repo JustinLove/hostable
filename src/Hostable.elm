@@ -274,7 +274,16 @@ update msg model =
         , users = addComment userId comment model.users
       } |> persist
     UI (View.SelectGame gameId) ->
-      ( {model | selectedGame = Just gameId}, Cmd.none)
+      ( {model | selectedGame = Just gameId}
+      , Process.sleep 100
+        |> Task.andThen (\_ -> Dom.focus "edit-game-score")
+        |> Task.attempt Focused
+      )
+    UI (View.UpdateGameScore gameId score) ->
+      { model
+        | selectedGame = Nothing
+        , games = updateGameScore gameId score model.games
+      } |> persist
 
 toUserDict : List User -> Dict String User
 toUserDict =
@@ -323,6 +332,20 @@ addComment userId comment users =
       { u | tags = comment :: u.tags }
     ))
     users
+
+updateGameScore : String -> Float -> Dict String Game -> Dict String Game
+updateGameScore gameId score games =
+  Dict.update
+    gameId
+    (Maybe.map (\g ->
+      { g | score =
+          if score == 1.0 then
+            Nothing
+          else
+            Just score
+      }
+    ))
+    games
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
