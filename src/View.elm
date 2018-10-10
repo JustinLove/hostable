@@ -30,6 +30,7 @@ type Msg
   | RemoveComment String String
   | AddComment String
   | CreateComment String String
+  | SelectGame String
 
 boxWidth = 70
 boxHeight = 95
@@ -88,7 +89,15 @@ header { display: flex; justify-content: space-between;}
   position: absolute;
   bottom: 10px;
   left: 0;
-  width: auto;
+}
+#edit-game-score {
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: 60px;
 }
 
 svg.icon {
@@ -248,22 +257,17 @@ displayComment selectedComment userId comment =
 
 displayAddingComment : Maybe String -> String -> Html Msg
 displayAddingComment addingComment userId =
-  let
-    adding = case addingComment of
-      Just id -> id == userId
-      Nothing -> False
-  in
-    if adding then
-      li [ ]
-        [ input
-          [ type_ "text"
-          , id "new-comment"
-          , name "new-comment"
-          , on "change" <| targetValue Json.Decode.string (CreateComment userId)
-          ] []
-        ]
-    else
-      li [ onClick (AddComment userId) ] [ text "+"]
+  if addingComment == Just userId then
+    li [ ]
+      [ input
+        [ type_ "text"
+        , id "new-comment"
+        , name "new-comment"
+        , on "change" <| targetValue Json.Decode.string (CreateComment userId)
+        ] []
+      ]
+  else
+    li [ onClick (AddComment userId) ] [ text "+"]
 
 --rankStream : Model -> Stream -> Float
 rankStream model stream =
@@ -284,13 +288,28 @@ gameView model game =
     , style "width" ((String.fromInt boxWidth) ++ "px")
     , style "height" ((String.fromInt boxHeight) ++ "px")
     ]
-    [ displayBoxArt (Just game)
-    , case game.score of
-      Just score ->
-        div [ class "score" ] [ text <| String.fromFloat score ]
-      Nothing ->
-        text ""
-    ]
+    <|
+    if model.selectedGame == Just game.id then
+      [ displayBoxArt (Just game)
+      , input
+        [ type_ "number"
+        , id "edit-game-score"
+        , name "edit-game-score"
+        , step "0.1"
+        , value (game.score |> Maybe.withDefault 1.0 |> String.fromFloat)
+        --, on "change" <| targetValue Json.Decode.string (CreateComment userId)
+        ] []
+      ]
+    else
+      [ a [ onClick (SelectGame game.id)]
+        [ displayBoxArt (Just game)
+        , case game.score of
+          Just score ->
+            div [ class "score" ] [ text <| String.fromFloat score ]
+          Nothing ->
+            text ""
+        ]
+      ]
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =

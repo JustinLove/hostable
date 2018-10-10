@@ -59,6 +59,7 @@ type alias Model =
   , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
   , addingComment : Maybe String
+  , selectedGame : Maybe String
   , time : Posix
   , zone : Zone
   , labelWidths : Dict String Float
@@ -86,6 +87,7 @@ init _ =
     , selectedUser = Nothing
     , selectedComment = Nothing
     , addingComment = Nothing
+    , selectedGame = Nothing
     , time = Time.millisToPosix 0
     , zone = Time.utc
     , labelWidths = Dict.empty
@@ -271,6 +273,8 @@ update msg model =
         | addingComment = Nothing
         , users = addComment userId comment model.users
       } |> persist
+    UI (View.SelectGame gameId) ->
+      ( {model | selectedGame = Just gameId}, Cmd.none)
 
 toUserDict : List User -> Dict String User
 toUserDict =
