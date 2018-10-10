@@ -30,11 +30,16 @@ user u =
 
 game : Game -> Value
 game g =
-  object
-    [ ("id", string g.id)
-    , ("name", string g.name)
-    , ("boxArtUrl", string g.boxArtUrl)
-    ]
+  object <|
+    List.append
+      [ ("id", string g.id)
+      , ("name", string g.name)
+      , ("boxArtUrl", string g.boxArtUrl)
+      ]
+      (case g.score of
+        Just score -> [ ("score", float score) ]
+        Nothing -> []
+      )
 
 events : Dict String (List Event) -> Value
 events evts =

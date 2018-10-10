@@ -291,7 +291,7 @@ toUserDict =
 
 toGameDict : List Game -> Dict String Game
 toGameDict =
-  List.map (\g -> (g.id, {g | score = rankGame g.name})) >> Dict.fromList
+  List.map (\g -> (g.id, g)) >> Dict.fromList
 
 addUsers : List User -> Dict String User -> Dict String User
 addUsers news olds =
@@ -389,43 +389,8 @@ importGame game =
   { id = game.id
   , name = game.name
   , boxArtUrl = game.boxArtUrl
-  , score = rankGame game.name
+  , score = Nothing
   }
-
-rankGame : String -> Maybe Float
-rankGame name =
-  let
-    score = rankGame_ name
-  in
-  if score == 1.0 then
-    Nothing
-  else
-    Just score
-
-rankGame_ : String -> Float
-rankGame_ name =
-  case name of
-    "Astroneer" -> 2.0
-    "Crypt of the NecroDancer" -> 1.5
-    "Cultist Simulator" -> 1.5
-    "Darkest Dungeon" -> 1.5
-    "Factorio" -> 2.0
-    "Faeria" -> 1.5
-    "Fortnite" -> 0.5
-    "Frostpunk" -> 1.5
-    "Into the Breach" -> 1.5
-    "One Hour One Life" -> 2.0
-    "Overwatch" -> 0.5
-    "Oxygen Not Included" -> 2.0
-    "RimWorld" -> 1.5
-    "Science & Technology" -> 2.0
-    "Slay the Spire" -> 1.5
-    "Slime Rancher" -> 1.5
-    "Stardew Valley" -> 1.5
-    "Subnautica" -> 2.0
-    "TerraTech" -> 1.5
-    "They Are Billions" -> 1.5
-    _ -> 1.0
 
 tagRanks : List User -> Dict String Float
 tagRanks users =

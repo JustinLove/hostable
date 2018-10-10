@@ -39,7 +39,7 @@ game =
     (field "id" string)
     (field "name" string)
     (field "boxArtUrl" string)
-    (succeed Nothing)
+    (maybe (field "score" float))
 
 event : Decoder Event
 event =
