@@ -1,4 +1,4 @@
-module View exposing (Msg(..), view, document)
+module View exposing (Msg(..), AppMode(..), view, document)
 
 import FileInput
 import Twitch.Helix.Decode exposing (Stream)
@@ -9,7 +9,7 @@ import ScheduleGraph exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, on, preventDefaultOn)
+import Html.Events exposing (onClick, onCheck, on, preventDefaultOn)
 import Html.Keyed as Keyed
 import Svg exposing (svg, use)
 import Svg.Attributes exposing (xlinkHref)
@@ -32,6 +32,11 @@ type Msg
   | CreateComment String String
   | SelectGame String
   | UpdateGameScore String Float
+  | Navigate AppMode
+
+type AppMode
+  = LiveStreams
+  | GameScores
 
 boxWidth = 70
 boxHeight = 95
@@ -45,6 +50,10 @@ body {
   color: rgb(218, 216, 222);
 }
 header { display: flex; justify-content: space-between;}
+nav ul { list-style-type: none; display: flex; margin: 0;}
+nav li div { display: inline-block; }
+nav li .navigation-controls { margin-right: 0.5em; }
+
 .streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 200px; padding: 10px; }
 .graphics { width: 240px; height: 95px; position: relative; }
@@ -127,8 +136,9 @@ view model =
   div []
     [ node "style" [] [ text css ]
     , headerView model
-    , liveStreamsView model
-    , gamesView model
+    , case model.appMode of
+      LiveStreams -> liveStreamsView model
+      GameScores -> gamesView model
     , displayFooter
     ]
 
@@ -139,6 +149,12 @@ headerView model =
       , text " Requests: "
       , text <| String.fromInt
         <| ((List.length model.pendingRequests) + model.outstandingRequests)
+      ]
+    , nav []
+      [ ul []
+        [ navigationItem model.appMode LiveStreams "live-streams" "Streams"
+        , navigationItem model.appMode GameScores "game-scores" "Games"
+        ]
       ]
     , div [ class "add-channel" ]
       [ label [ for "channelname" ] [ text "Add Channel" ]
@@ -160,6 +176,27 @@ headerView model =
         , download "hostable.json"
         ]
         [ text "export" ]
+    ] 
+
+navigationItem : AppMode -> AppMode -> String -> String -> Html Msg
+navigationItem current target itemId title =
+  li
+    [ classList [ ("selected", current == target) ]
+    --, ariaSelected (if current == target then "true" else "false")
+    ]
+    [ div [ class "navigation-controls" ]
+      [ input
+        [ type_ "radio"
+        , Html.Attributes.name "navigation"
+        , id (itemId ++ "-navigation")
+        , value title
+        , onCheck (\_ -> Navigate target)
+        , checked (current == target)
+        ] []
+      , label [ for (itemId ++ "-navigation") ]
+        [ text title
+        ]
+      ]
     ]
 
 liveStreamsView model =

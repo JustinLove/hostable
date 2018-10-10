@@ -13,7 +13,7 @@ import Twitch.Kraken as Kraken
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
-import View
+import View exposing (AppMode(..))
 
 import Browser
 import Browser.Dom as Dom
@@ -56,6 +56,7 @@ type alias Model =
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
   , previewVersion : Int
+  , appMode : AppMode
   , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
   , addingComment : Maybe String
@@ -84,6 +85,7 @@ init _ =
     , pendingRequests = []
     , outstandingRequests = 0
     , previewVersion = 0
+    , appMode = LiveStreams
     , selectedUser = Nothing
     , selectedComment = Nothing
     , addingComment = Nothing
@@ -286,6 +288,8 @@ update msg model =
         | selectedGame = Nothing
         , games = updateGameScore gameId score model.games
       } |> persist
+    UI (View.Navigate mode) ->
+      ( {model | appMode = mode}, Cmd.none)
 
 toUserDict : List User -> Dict String User
 toUserDict =
