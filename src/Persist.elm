@@ -11,6 +11,7 @@ type alias Persist =
 
 type alias Export =
   { users : List User
+  , games : List Game
   }
 
 type alias User =

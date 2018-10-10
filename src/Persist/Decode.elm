@@ -18,8 +18,12 @@ persist =
 
 export : Decoder Export
 export =
-  map Export
+  map2 Export
     (field "users" (list user))
+    (oneOf
+      [ (field "games" (list game))
+      , succeed []
+      ])
 
 user : Decoder User
 user =

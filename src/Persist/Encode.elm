@@ -18,6 +18,7 @@ export : Export -> Value
 export e =
   object
     [ ("users", list user <| List.filter .persisted e.users)
+    , ("games", list game e.games)
     ]
 
 user : User -> Value

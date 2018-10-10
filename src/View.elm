@@ -374,6 +374,7 @@ icon name =
 export model =
   Export
       (model.users |> Dict.values)
+      (model.games |> Dict.values |> List.filter (\g -> g.score /= Nothing))
     |> Persist.Encode.export
     |> Json.Encode.encode 2
 

@@ -123,6 +123,8 @@ update msg model =
     Imported (Ok imported) ->
       { model
       | users = imported.users |> toUserDict
+      , games = imported.games
+        |> List.foldl (\g games -> Dict.insert g.id g games) model.games
       , scoredTags = tagRanks imported.users
       , liveStreams = Dict.empty
       , pendingUserStreams = List.map .id imported.users
