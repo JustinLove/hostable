@@ -1,0 +1,79 @@
+body {
+  background-color: rgb(23, 20, 31);
+  color: rgb(218, 216, 222);
+}
+header { display: flex; justify-content: space-between;}
+nav ul { list-style-type: none; display: flex; margin: 0;}
+nav li div { display: inline-block; }
+nav li .navigation-controls { margin-right: 0.5em; }
+
+.streams { display: flex; flex-wrap: wrap; list-style-type: none;}
+.stream { width: 240px; height: 200px; padding: 10px; }
+.graphics { width: 240px; height: 95px; position: relative; }
+.screen { width: 168px; height: 95px; position: absolute; right: 0;}
+.box-art { position: absolute; left: 0; }
+.viewers {
+  margin-right: 0.2em;
+  background: rgb(100, 65, 164);
+  color: white;
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+}
+.info { display: flex; overflow-x: hidden; }
+.info-text p { margin: 0.2em; font-size: 0.8em; white-space: nowrap; }
+.game-name { color: rgb(174, 158, 202); }
+.channel {
+  background-color: rgb(14, 12, 19);
+  color: rgb(250, 249, 250);
+  border: 1px solid #392e5c;
+}
+.schedule-graph { width: 240px; }
+
+.comments { padding: 0;}
+.comments li {
+  display: inline-block;
+  margin: 0.2em;
+  padding-left: 0.2em;
+  padding-right: 0.2em;
+  color: white;
+  background-color: grey;
+  border-radius: 0.2em;
+}
+
+.games { display: flex; flex-wrap: wrap; list-style-type: none;}
+.game { padding: 10px; position: relative;}
+.score {
+  background: rgb(100, 65, 164);
+  color: white;
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+}
+#edit-game-score {
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: 60px;
+}
+
+svg.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.2em;
+  stroke-width: 0;
+  stroke: currentColor;
+  fill: currentColor;
+}
+.icon-github { color: #888; }
+.icon-twitter { color: #55acee; }
+.icon-twitch { color: #6441A4; }
+a:link, a:visited { color: #b19dd8; }
+a:hover, a:active { color: rgb(218, 216, 222); }
