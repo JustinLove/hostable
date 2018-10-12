@@ -11,6 +11,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onCheck, on, preventDefaultOn)
 import Html.Keyed as Keyed
+import Set
 import Svg exposing (svg, use)
 import Svg.Attributes exposing (xlinkHref)
 import Time
@@ -37,6 +38,7 @@ type Msg
 type AppMode
   = LiveStreams
   | GameScores
+  | TagScores
 
 boxWidth = 70
 boxHeight = 95
@@ -56,6 +58,7 @@ view model =
     , case model.appMode of
       LiveStreams -> liveStreamsView model
       GameScores -> gamesView model
+      TagScores -> tagsView model
     , displayFooter
     ]
 
@@ -71,6 +74,7 @@ headerView model =
       [ ul []
         [ navigationItem model.appMode LiveStreams "live-streams" "Streams"
         , navigationItem model.appMode GameScores "game-scores" "Games"
+        , navigationItem model.appMode TagScores "tag-scores" "Tags"
         ]
       ]
     , div [ class "add-channel" ]
@@ -278,6 +282,26 @@ gameView model game =
             text ""
         ]
       ]
+
+tagsView model =
+  model.users
+    |> Dict.values
+    |> List.concatMap .tags
+    |> Set.fromList
+    |> Set.toList
+    |> List.map (\tag -> (tag, tagView model tag))
+    |> Keyed.ul [ id "tags", class "tags" ]
+
+tagView model tag =
+  li []
+    [ text tag
+    , text " "
+    , case Dict.get tag model.scoredTags of
+        Just score ->
+          span [ class "score" ] [ text <| String.fromFloat score ]
+        Nothing ->
+          text ""
+    ]
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
