@@ -40,6 +40,10 @@ nav li .navigation-controls { margin-right: 0.5em; }
   background-color: grey;
   border-radius: 0.2em;
 }
+.comments a:link, .comments a:visited {
+  color: white;
+  text-decoration: none;
+}
 
 .games { display: flex; flex-wrap: wrap; list-style-type: none;}
 .game { padding: 10px; position: relative;}
@@ -62,6 +66,13 @@ nav li .navigation-controls { margin-right: 0.5em; }
   position: absolute;
   bottom: 10px;
   left: 0;
+  width: 60px;
+}
+
+#edit-tag-score {
+  padding: 0.1em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
   width: 60px;
 }
 

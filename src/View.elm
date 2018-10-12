@@ -33,6 +33,8 @@ type Msg
   | CreateComment String String
   | SelectGame String
   | UpdateGameScore String Float
+  | SelectTag String
+  | UpdateTagScore String Float
   | Navigate AppMode
 
 type AppMode
@@ -290,18 +292,38 @@ tagsView model =
     |> Set.fromList
     |> Set.toList
     |> List.map (\tag -> (tag, tagView model tag))
-    |> Keyed.ul [ id "tags", class "tags" ]
+    |> Keyed.ul [ id "comments", class "comments" ]
 
 tagView model tag =
   li []
-    [ text tag
-    , text " "
-    , case Dict.get tag model.scoredTags of
-        Just score ->
-          span [ class "score" ] [ text <| String.fromFloat score ]
-        Nothing ->
-          text ""
-    ]
+    <|
+    if model.selectedTag == Just tag then
+      [ text tag
+      , text " "
+      , input
+        [ type_ "number"
+        , id "edit-tag-score"
+        , name "edit-tag-score"
+        , step "0.1"
+        , value (Dict.get tag model.scoredTags |> Maybe.withDefault 1.0 |> String.fromFloat)
+        , on "blur" <| targetValue decodeFloat (UpdateTagScore tag)
+        ] []
+      ]
+    else
+      [ a
+        [ preventDefaultOn "click"
+          (Json.Decode.succeed (SelectTag tag, True))
+        , href "#"
+        ]
+        [ text tag
+        , text " "
+        , case Dict.get tag model.scoredTags of
+            Just score ->
+              span [ class "score" ] [ text <| String.fromFloat score ]
+            Nothing ->
+              text ""
+        ]
+      ]
 
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =

@@ -61,6 +61,7 @@ type alias Model =
   , selectedComment : Maybe (String, String)
   , addingComment : Maybe String
   , selectedGame : Maybe String
+  , selectedTag : Maybe String
   , time : Posix
   , zone : Zone
   , labelWidths : Dict String Float
@@ -90,6 +91,7 @@ init _ =
     , selectedComment = Nothing
     , addingComment = Nothing
     , selectedGame = Nothing
+    , selectedTag = Nothing
     , time = Time.millisToPosix 0
     , zone = Time.utc
     , labelWidths = Dict.empty
@@ -288,6 +290,17 @@ update msg model =
         | selectedGame = Nothing
         , games = updateGameScore gameId score model.games
       } |> persist
+    UI (View.SelectTag tag) ->
+      ( {model | selectedTag = Just tag}
+      , Process.sleep 100
+        |> Task.andThen (\_ -> Dom.focus "edit-tag-score")
+        |> Task.attempt Focused
+      )
+    UI (View.UpdateTagScore tag score) ->
+      { model
+        | selectedTag = Nothing
+        , scoredTags = updateTagScore tag score model.scoredTags
+      } |> persist
     UI (View.Navigate mode) ->
       ( {model | appMode = mode}, Cmd.none)
 
@@ -352,6 +365,18 @@ updateGameScore gameId score games =
       }
     ))
     games
+
+updateTagScore : String -> Float -> Dict String Float -> Dict String Float
+updateTagScore tag score scoredTags =
+  Dict.update
+    tag
+    (\_ ->
+      if score == 1.0 then
+        Nothing
+      else
+        Just score
+    )
+    scoredTags
 
 persist : Model -> (Model, Cmd Msg)
 persist model =
