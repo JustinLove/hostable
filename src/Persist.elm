@@ -6,6 +6,7 @@ import Time exposing (Posix)
 type alias Persist =
   { users : List User
   , games : List Game
+  , scoredTags : Dict String Float
   , events : Dict String (List Event)
   }
 

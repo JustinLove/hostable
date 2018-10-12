@@ -8,9 +8,13 @@ import Time
 
 persist : Decoder Persist
 persist =
-  map3 Persist
+  map4 Persist
     (field "users" (list user))
     (field "games" (list game))
+    (oneOf
+      [ (field "scoredTags" (dict float))
+      , succeed Dict.empty
+      ])
     (oneOf
       [ (field "events" (dict (list event)))
       , succeed Dict.empty

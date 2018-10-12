@@ -114,7 +114,7 @@ update msg model =
             { model
             | users = state.users |> toUserDict
             , games = state.games |> toGameDict
-            , scoredTags = tagRanks state.users
+            , scoredTags = state.scoredTags
             , events = state.events
             , pendingUserStreams = List.map .id state.users
             }
@@ -387,6 +387,7 @@ saveState model =
   Persist
       (Dict.values model.users)
       (Dict.values model.games)
+      model.scoredTags
       model.events
     |> Persist.Encode.persist
     |> LocalStorage.saveJson
