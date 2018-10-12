@@ -129,7 +129,7 @@ update msg model =
       | users = imported.users |> toUserDict
       , games = imported.games
         |> List.foldl (\g games -> Dict.insert g.id g games) model.games
-      , scoredTags = tagRanks imported.users
+      , scoredTags = imported.scoredTags
       , liveStreams = Dict.empty
       , pendingUserStreams = List.map .id imported.users
       }
@@ -423,43 +423,6 @@ importGame game =
   , boxArtUrl = game.boxArtUrl
   , score = Nothing
   }
-
-tagRanks : List User -> Dict String Float
-tagRanks users =
-  users
-    |> List.concatMap .tags
-    |> List.foldr (\tag dict ->
-      let
-        score = rankTag tag
-      in
-      if score == 1.0 then
-        dict
-      else
-        Dict.insert tag (rankTag tag) dict
-    ) Dict.empty
-
-rankTag : String -> Float
-rankTag tag =
-  let
-    ltag = String.toLower tag
-  in
-  if String.contains "some swear" ltag then
-    0.6
-  else if String.contains "occasional swear" ltag then
-    0.6
-  else if String.contains "frequent swear" ltag then
-    0.25
-  else if String.contains "swear" ltag then
-    0.5
-  else if String.contains "low music" ltag then
-    0.75
-  else if String.contains "music" ltag then
-    0.5
-  else if String.contains "kbps" ltag then
-    0.75
-  else
-    1.0
-
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =

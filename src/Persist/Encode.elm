@@ -20,6 +20,7 @@ export e =
   object
     [ ("users", list user <| List.filter .persisted e.users)
     , ("games", list game e.games)
+    , ("scoredTags", dict identity float e.scoredTags)
     ]
 
 user : User -> Value

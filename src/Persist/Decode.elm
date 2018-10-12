@@ -22,11 +22,15 @@ persist =
 
 export : Decoder Export
 export =
-  map2 Export
+  map3 Export
     (field "users" (list user))
     (oneOf
       [ (field "games" (list game))
       , succeed []
+      ])
+    (oneOf
+      [ (field "scoredTags" (dict float))
+      , succeed Dict.empty
       ])
 
 user : Decoder User

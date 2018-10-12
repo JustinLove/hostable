@@ -384,6 +384,7 @@ export model =
   Export
       (model.users |> Dict.values)
       (model.games |> Dict.values |> List.filter (\g -> g.score /= Nothing))
+      model.scoredTags
     |> Persist.Encode.export
     |> Json.Encode.encode 2
 

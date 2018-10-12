@@ -13,6 +13,7 @@ type alias Persist =
 type alias Export =
   { users : List User
   , games : List Game
+  , scoredTags : Dict String Float
   }
 
 type alias User =
