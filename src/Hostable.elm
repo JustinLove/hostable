@@ -36,6 +36,7 @@ requestRate = 5
 type Msg
   = Loaded (Maybe Persist)
   | Imported (Result Json.Decode.Error Export)
+  | Self (Result Http.Error (List Helix.User))
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
@@ -138,6 +139,7 @@ update msg model =
         )
         |> fetchNextUserBatch requestLimit
         |> fetchNextUserStreamBatch requestLimit
+        |> fetchSelfIfAuth
       , Cmd.none)
     Imported (Ok imported) ->
       { model
@@ -152,6 +154,18 @@ update msg model =
       |> persist
     Imported (Err err) ->
       (model, Cmd.none)
+    Self (Ok (user::_)) ->
+      ( { model
+        | authLogin = Just user.displayName
+        }
+      , Cmd.none
+      )
+    Self (Ok _) ->
+      let _ = Debug.log "self did not find user" "" in
+      (model, Cmd.none)
+    Self (Err error) ->
+      { e = Debug.log "self fetch error" error
+      , r = (model, Cmd.none)}.r
     Users (Ok users) ->
       { model
       | users = addUsers (List.map (importUser>>persistUser) users) model.users
@@ -508,6 +522,14 @@ fetchUnknownUsers streams model =
     model
     |> appendRequests [fetchUnknownUsersById missing]
 
+fetchSelfIfAuth :  Model -> Model
+fetchSelfIfAuth model =
+  case model.auth of
+    Just _ ->
+      model |> appendRequests [ fetchSelf model.auth ]
+    Nothing ->
+      model
+
 appendRequests : List (Cmd Msg) -> Model -> Model
 appendRequests cmds model = 
   { model
@@ -561,6 +583,20 @@ fetchUnknownUsersById ids =
       , tagger = Response << UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
+
+fetchSelfUrl : String
+fetchSelfUrl =
+  "https://api.twitch.tv/helix/users"
+
+fetchSelf : Maybe String -> Cmd Msg
+fetchSelf auth =
+  Helix.send <|
+    { clientId = TwitchId.clientId
+    , auth = auth
+    , decoder = Helix.users
+    , tagger = Response << Self
+    , url = fetchSelfUrl
+    }
 
 fetchStreamsByUserIdsUrl : List String -> String
 fetchStreamsByUserIdsUrl userIds =
