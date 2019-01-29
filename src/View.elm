@@ -23,6 +23,7 @@ import Url.Builder as Url
 
 type Msg
   = Refresh
+  | Logout
   | Export
   | Import (List File.File)
   | AddChannel String
@@ -366,7 +367,7 @@ displayLogin model =
       span []
         [ span [ class "user" ] [ text <| Maybe.withDefault "--" model.authLogin ]
         , text " "
-        , a [ href (Url.relative [] []) ] [ text "logout" ]
+        , a [ href "#", onClick Logout ] [ text "logout" ]
         ]
     Nothing ->
       a [ href (authorizeUrl (urlForRedirect model.location)) ] [ text "login" ]

@@ -132,7 +132,9 @@ update msg model =
             , games = state.games |> toGameDict
             , scoredTags = state.scoredTags
             , events = state.events
-            , auth = state.auth
+            , auth = case state.auth of
+              Just _ -> state.auth
+              Nothing -> model.auth
             , pendingUserStreams = List.map .id state.users
             }
           Nothing ->
@@ -257,6 +259,9 @@ update msg model =
         , previewVersion = model.previewVersion + 1
         }
       , Cmd.none)
+    UI (View.Logout) ->
+      { model | auth = Nothing, authLogin = Nothing }
+        |> persist
     UI (View.Export) ->
       ( model
       , model
