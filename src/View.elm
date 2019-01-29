@@ -2,8 +2,7 @@ module View exposing (Msg(..), AppMode(..), view, document)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
-import Persist exposing (Export, User, Game)
-import Persist.Encode
+import Persist exposing (User, Game)
 import ScheduleGraph exposing (..)
 
 import Html exposing (..)
@@ -23,6 +22,7 @@ import Base64
 
 type Msg
   = Refresh
+  | Export
   | Import (List File.File)
   | AddChannel String
   | RemoveChannel String
@@ -94,11 +94,7 @@ headerView model =
       , on "change" (targetFiles Import)
       ]
       []
-    , a
-        [ href ("data:;base64," ++ (model |> export |> Base64.encode))
-        , download "hostable.json"
-        ]
-        [ text "export" ]
+    , button [ onClick Export ] [ text "export" ]
     ] 
 
 navigationItem : AppMode -> AppMode -> String -> String -> Html Msg
@@ -378,15 +374,6 @@ icon : String -> Html msg
 icon name =
   svg [ Svg.Attributes.class ("icon icon-"++name) ]
     [ use [ xlinkHref ("symbol-defs.svg#icon-"++name) ] [] ]
-
---export : Model -> String
-export model =
-  Export
-      (model.users |> Dict.values)
-      (model.games |> Dict.values |> List.filter (\g -> g.score /= Nothing))
-      model.scoredTags
-    |> Persist.Encode.export
-    |> Json.Encode.encode 2
 
 targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =

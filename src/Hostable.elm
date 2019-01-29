@@ -17,6 +17,7 @@ import View exposing (AppMode(..))
 import Browser
 import Browser.Dom as Dom
 import File
+import File.Download
 import Task
 import Process
 import Http
@@ -227,6 +228,12 @@ update msg model =
         , previewVersion = model.previewVersion + 1
         }
       , Cmd.none)
+    UI (View.Export) ->
+      ( model
+      , model
+        |> export
+        |> File.Download.string "hostable.json" "application/json"
+      )
     UI (View.Import files) ->
       ( model
       , files
@@ -396,6 +403,15 @@ saveState model =
       model.events
     |> Persist.Encode.persist
     |> LocalStorage.saveJson
+
+export : Model -> String
+export model =
+  Export
+      (model.users |> Dict.values)
+      (model.games |> Dict.values |> List.filter (\g -> g.score /= Nothing))
+      model.scoredTags
+    |> Persist.Encode.export
+    |> Json.Encode.encode 2
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
