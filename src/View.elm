@@ -2,6 +2,7 @@ module View exposing (Msg(..), AppMode(..), view, document)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
+import TwitchId
 import Persist exposing (User, Game)
 import ScheduleGraph exposing (..)
 
@@ -17,8 +18,8 @@ import Time
 import Color
 import Dict exposing (Dict)
 import Json.Decode
-import Json.Encode
-import Base64
+import Url exposing (Url)
+import Url.Builder as Url
 
 type Msg
   = Refresh
@@ -71,6 +72,8 @@ headerView model =
       , text " Requests: "
       , text <| String.fromInt
         <| ((List.length model.pendingRequests) + model.outstandingRequests)
+      , text " "
+      , displayLogin model
       ]
     , nav []
       [ ul []
@@ -356,6 +359,32 @@ nameOfGame mgame =
       game.name
     Nothing ->
       "--"
+
+displayLogin model =
+  case model.auth of
+    Just _ ->
+      span []
+        [ span [ class "user" ] [ text <| Maybe.withDefault "--" model.authLogin ]
+        , text " "
+        , a [ href (Url.relative [] []) ] [ text "logout" ]
+        ]
+    Nothing ->
+      a [ href (authorizeUrl (urlForRedirect model.location)) ] [ text "login" ]
+
+authorizeUrl : String -> String
+authorizeUrl redirectUri =
+  "https://api.twitch.tv/kraken/oauth2/authorize"
+    ++ (
+      [ Url.string "client_id" TwitchId.clientId
+      , Url.string "redirect_uri" redirectUri
+      , Url.string "response_type" "token"
+      ]
+      |> Url.toQuery
+      )
+
+urlForRedirect : Url -> String
+urlForRedirect url =
+  {url | query = Nothing, fragment = Nothing } |> Url.toString
 
 displayFooter : Html msg
 displayFooter =

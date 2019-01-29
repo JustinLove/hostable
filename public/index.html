@@ -12,7 +12,7 @@
 </body>
 
 <script type="text/javascript">
-  var app = Elm.Hostable.init()
+  var app = Elm.Hostable.init({flags: window.location.href})
 
   let canvas = document.createElement("canvas");
   let context = canvas.getContext("2d");

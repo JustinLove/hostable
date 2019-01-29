@@ -26,6 +26,9 @@ import Set
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
+import Url exposing (Url)
+import Url.Parser
+import Url.Parser.Query
 
 requestLimit = 100
 requestRate = 5
@@ -52,6 +55,8 @@ type alias Model =
   , scoredTags : Dict String Float
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
+  , auth : Maybe String
+  , authLogin : Maybe String
   , pendingUsers : List String
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
@@ -63,6 +68,7 @@ type alias Model =
   , addingComment : Maybe String
   , selectedGame : Maybe String
   , selectedTag : Maybe String
+  , location : Url
   , time : Posix
   , zone : Zone
   , labelWidths : Dict String Float
@@ -75,13 +81,20 @@ main = Browser.document
   , view = View.document UI
   }
 
-init : () -> (Model, Cmd Msg)
-init _ =
+init : String -> (Model, Cmd Msg)
+init href =
+  let
+    url = Url.fromString href
+      |> Maybe.withDefault (Url Url.Http "" Nothing "" Nothing Nothing)
+    auth = extractHashArgument "access_token" url
+  in
   ( { users = Dict.empty
     , games = Dict.empty
     , scoredTags = Dict.empty
     , liveStreams = Dict.empty
     , events = Dict.empty
+    , auth = auth
+    , authLogin = Nothing
     , pendingUsers = []
     , pendingUserStreams = []
     , pendingRequests = []
@@ -93,6 +106,7 @@ init _ =
     , addingComment = Nothing
     , selectedGame = Nothing
     , selectedTag = Nothing
+    , location = url
     , time = Time.millisToPosix 0
     , zone = Time.utc
     , labelWidths = Dict.empty
@@ -595,3 +609,9 @@ fetchVideos userId =
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
     }
+
+extractHashArgument : String -> Url -> Maybe String
+extractHashArgument key location =
+  { location | path = "", query = location.fragment }
+    |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string key))
+    |> Maybe.withDefault Nothing
