@@ -9,11 +9,16 @@ import Time
 persist : Persist -> Value
 persist p =
   object
-    [ ("users", list user <| List.filter .persisted p.users)
-    , ("games", list game p.games)
-    , ("scoredTags", dict identity float p.scoredTags)
-    , ("events", events p.events)
-    ]
+    <| List.append
+      [ ("users", list user <| List.filter .persisted p.users)
+      , ("games", list game p.games)
+      , ("scoredTags", dict identity float p.scoredTags)
+      , ("events", events p.events)
+      ]
+      (case p.auth of
+        Just auth -> [("auth", string auth)]
+        Nothing -> []
+      )
 
 export : Export -> Value
 export e =

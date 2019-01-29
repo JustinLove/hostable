@@ -8,7 +8,7 @@ import Time
 
 persist : Decoder Persist
 persist =
-  map4 Persist
+  map5 Persist
     (field "users" (list user))
     (field "games" (list game))
     (oneOf
@@ -19,6 +19,7 @@ persist =
       [ (field "events" (dict (list event)))
       , succeed Dict.empty
       ])
+    (maybe (field "auth" string))
 
 export : Decoder Export
 export =

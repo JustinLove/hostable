@@ -8,6 +8,7 @@ type alias Persist =
   , games : List Game
   , scoredTags : Dict String Float
   , events : Dict String (List Event)
+  , auth : Maybe String
   }
 
 type alias Export =
