@@ -1,6 +1,5 @@
 module View exposing (Msg(..), AppMode(..), view, document)
 
-import FileInput
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import Persist exposing (Export, User, Game)
@@ -10,6 +9,7 @@ import ScheduleGraph exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onCheck, on, preventDefaultOn)
+import File
 import Html.Keyed as Keyed
 import Set
 import Svg exposing (svg, use)
@@ -23,7 +23,7 @@ import Base64
 
 type Msg
   = Refresh
-  | Import Json.Decode.Value
+  | Import (List File.File)
   | AddChannel String
   | RemoveChannel String
   | HostClicked String String
@@ -91,7 +91,7 @@ headerView model =
       ]
     , input
       [ type_ "file"
-      , on "change" (FileInput.targetFiles Import)
+      , on "change" (targetFiles Import)
       ]
       []
     , a
@@ -392,6 +392,12 @@ targetValue : Json.Decode.Decoder a -> (a -> Msg) -> Json.Decode.Decoder Msg
 targetValue decoder tagger =
   Json.Decode.map tagger
     (Json.Decode.at ["target", "value" ] decoder)
+
+targetFiles : (List File.File -> msg) -> Json.Decode.Decoder msg
+targetFiles tagger =
+  (Json.Decode.at ["target", "files"] (Json.Decode.list File.decoder))
+    |> Json.Decode.map tagger
+    --|> Json.Decode.map (Debug.log "files")
 
 decodeFloat : Json.Decode.Decoder Float
 decodeFloat =

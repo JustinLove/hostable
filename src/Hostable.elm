@@ -1,6 +1,5 @@
 module Hostable exposing (..)
 
-import FileInput
 import LocalStorage
 import MeasureText
 import Persist exposing (Persist, Export, User, Game)
@@ -17,6 +16,7 @@ import View exposing (AppMode(..))
 
 import Browser
 import Browser.Dom as Dom
+import File
 import Task
 import Process
 import Http
@@ -228,7 +228,12 @@ update msg model =
         }
       , Cmd.none)
     UI (View.Import files) ->
-      (model, FileInput.read files)
+      ( model
+      , files
+        |> List.map File.toString
+        |> List.map (Task.perform receiveImported)
+        |> Cmd.batch
+      )
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
       if (List.filter
@@ -400,7 +405,6 @@ subscriptions model =
       else
         Time.every (1000/requestRate) NextRequest
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
-    , FileInput.fileContents receiveImported
     , MeasureText.textSize TextSize
     ]
 
