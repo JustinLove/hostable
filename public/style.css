@@ -24,7 +24,7 @@ nav li .navigation-controls { margin-right: 0.5em; }
 .info { display: flex; overflow-x: hidden; }
 .info-text p { margin: 0.2em; font-size: 0.8em; white-space: nowrap; }
 .game-name { color: rgb(174, 158, 202); }
-.channel {
+input.channel {
   background-color: rgb(14, 12, 19);
   color: rgb(250, 249, 250);
   border: 1px solid #392e5c;

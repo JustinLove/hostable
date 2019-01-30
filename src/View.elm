@@ -29,6 +29,7 @@ type Msg
   | AddChannel String
   | RemoveChannel String
   | HostClicked String String
+  | HostChannel String
   | SelectComment String String
   | RemoveComment String String
   | AddComment String
@@ -45,7 +46,8 @@ type AppMode
   | TagScores
 
 type HostStatus
-  = NotHosting
+  = Incapable
+  | NotHosting
   | Hosting String
 
 boxWidth = 70
@@ -168,13 +170,21 @@ streamView model stream =
       [ div [ class "info-text" ]
         [ div [ class "viewers-channel" ]
           [ span [ class "viewers" ] [ text <| String.fromInt stream.viewerCount ]
-          , input
-            [ class "channel"
-            , id ("host-" ++ name)
-            , Html.Events.onClick (HostClicked stream.userId ("host-" ++ name))
-            , readonly True
-            , value ("/host " ++ name)
-            ] []
+          , case model.currentlyHosting of
+            Incapable ->
+              input
+                [ class "channel"
+                , id ("host-" ++ name)
+                , Html.Events.onClick (HostClicked stream.userId ("host-" ++ name))
+                , readonly True
+                , value ("/host " ++ name)
+                ] []
+            _ ->
+              button
+                [ class "channel"
+                , id ("host-" ++ name)
+                , Html.Events.onClick (HostChannel name)
+                ] [ text ("/host " ++ name) ]
           , if model.selectedUser == Just stream.userId then
               button [ onClick (RemoveChannel stream.userId) ] [ text "X" ]
             else

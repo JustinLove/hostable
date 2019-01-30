@@ -121,7 +121,7 @@ init href =
     , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
-    , currentlyHosting = NotHosting
+    , currentlyHosting = Incapable
     , previewVersion = 0
     , appMode = LiveStreams
     , selectedUser = Nothing
@@ -337,6 +337,13 @@ update msg model =
         }
       , SelectCopy.selectCopy controlId
       )
+    UI (View.HostChannel target) ->
+      ( model
+      , case model.ircConnection of
+          Joined id user channel ->
+            PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
+          _ -> Cmd.none
+      )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->
@@ -402,10 +409,8 @@ update msg model =
           (model, Cmd.none)
         Rejected ->
           (model, Cmd.none)
-        Connecting _ timeout ->
-          (model, Cmd.none)
         _ ->
-          ( {model | ircConnection = Connecting twitchIrc 1000}
+          ( {model | ircConnection = Connecting twitchIrc 1000, currentlyHosting = Incapable}
           , Cmd.none
           )
     SocketEvent id (PortSocket.Message message) ->
@@ -458,7 +463,7 @@ chatResponse id message line model =
             |> List.head
             |> Maybe.withDefault "unknown"
       in
-      ({model | ircConnection = Joined id user channel}, Cmd.none)
+      ({model | ircConnection = Joined id user channel, currentlyHosting = NotHosting }, Cmd.none)
     "NOTICE" ->
       case line.params of
         ["*", "Improperly formatted auth"] ->
