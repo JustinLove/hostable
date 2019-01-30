@@ -12,7 +12,11 @@
 </body>
 
 <script type="text/javascript">
-  var app = Elm.Hostable.init({flags: window.location.href})
+  var href = window.location.href
+  if (href.match('access_token')) {
+    history.replaceState(null, "Hostable", window.location.pathname)
+  }
+  var app = Elm.Hostable.init({flags: href})
 
   let canvas = document.createElement("canvas");
   let context = canvas.getContext("2d");
