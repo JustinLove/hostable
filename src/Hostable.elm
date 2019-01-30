@@ -378,13 +378,25 @@ update msg model =
       (model, Cmd.none)
     SocketEvent id (PortSocket.Open url) ->
       let _ = Debug.log "websocket open" id in
-        ({model | ircConnection = Connected id}, PortSocket.send id ("NICK justinfan" ++ (String.fromInt (modBy 1000000 (Time.posixToMillis model.time)))))
+      Maybe.map2 (\auth login ->
+        ({model | ircConnection = Connected id}, Cmd.batch
+          -- order is reversed, because elm feels like it
+          [ PortSocket.send id ("NICK " ++ login)
+          , PortSocket.send id ("PASS oauth:" ++ auth)
+          ])
+        )
+        model.auth
+        model.authLogin
+      |> Maybe.withDefault
+        ({model | ircConnection = Connected id}, Cmd.none)
     SocketEvent id (PortSocket.Close url) ->
       let _ = Debug.log "websocket closed" id in
       case model.ircConnection of
         Disconnected ->
           (model, Cmd.none)
         Connecting _ timeout ->
+          (model, Cmd.none)
+        Connected _ ->
           (model, Cmd.none)
         _ ->
           ( {model | ircConnection = Connecting twitchIrc 1000}
