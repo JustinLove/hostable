@@ -45,3 +45,5 @@ sampleHostTargetMessage = ":tmi.twitch.tv HOSTTARGET #wondible :zermisttv 3\r\n"
 sampleHostTargetOffMessage = ":tmi.twitch.tv HOSTTARGET #wondible :- 0\r\n"
 
 sampleHostTargetWentOfflineMessasge = "@msg-id=host_target_went_offline :tmi.twitch.tv NOTICE #wondible :gman8d has gone offline. Exiting host mode.\r\n"
+
+sampleUserStateMessage = "@badges=broadcaster/1;color=;display-name=wondibot;emote-sets=0;mod=0;subscriber=0;user-type= :tmi.twitch.tv USERSTATE #wondibot\r\n"

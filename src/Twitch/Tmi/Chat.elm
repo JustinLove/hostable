@@ -35,6 +35,7 @@ type Tag
   | DisplayName String
   | EmoteOnly Bool
   | Emotes (List Emote)
+  | EmoteSets (List String)
   | Flags String
   | FollowersOnly Int
   | Login String
@@ -152,6 +153,9 @@ tag =
       , succeed Emotes
         |. tagName "emotes"
         |= tagEmoteList
+      , succeed EmoteSets
+        |. tagName "emote-sets"
+        |= tagEmoteSets
       , succeed Flags
         |. tagName "flags"
         |= tagValue
@@ -375,6 +379,11 @@ characterRange =
       |= int "Expecting Int" "Invalid Number"
       |. symbol (Token "-" "expecting - between character start and end")
       |= int "Expecting Int" "Invalid Number"
+
+tagEmoteSets : MessageParser (List String)
+tagEmoteSets =
+  inContext "parsing emote set" <|
+    unbracketedList numericId ","
 
 tagMsgId : MessageParser NoticeType
 tagMsgId =
