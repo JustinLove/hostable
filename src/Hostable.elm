@@ -394,8 +394,7 @@ update msg model =
       let _ = Debug.log "websocket message" message in
       case (Parser.run Chat.message message) of
         Ok lines ->
-          --List.foldl (reduce (chatResponse id message)) (model, Cmd.none) lines
-          (model, Cmd.none)
+          List.foldl (reduce (chatResponse id message)) (model, Cmd.none) lines
         Err err ->
           let _ = Debug.log message err in
           (model, Cmd.none)
@@ -407,6 +406,71 @@ update msg model =
           )
         _ ->
           (model, Cmd.none)
+
+chatResponse : PortSocket.Id -> String -> Chat.Line -> Model -> (Model, Cmd Msg)
+chatResponse id message line model =
+  let
+    _ = line.tags
+      |> List.map (\tag -> case tag of 
+        Chat.UnknownTag _ _ ->
+          Debug.log message tag
+        _ -> tag
+      )
+  in
+  case line.command of
+    "CAP" -> (model, Cmd.none)
+    "HOSTTARGET" ->
+      let _ = Debug.log "hosttarget" line in
+      (model, Cmd.none)
+    "JOIN" ->
+      let
+          user = line.prefix
+            |> Maybe.map Chat.extractUserFromPrefix
+            |> Maybe.withDefault (Err [])
+            |> Result.withDefault "unknown"
+          channel = line.params
+            |> List.head
+            |> Maybe.withDefault "unknown"
+      in
+      ({model | ircConnection = Joined id user channel}, Cmd.none)
+    "PART" ->
+      let
+          user = line.prefix
+            |> Maybe.map Chat.extractUserFromPrefix
+            |> Maybe.withDefault (Err [])
+            |> Result.withDefault "unknown"
+      in
+      ({model | ircConnection = LoggedIn id user}, Cmd.none)
+    "PING" -> 
+      --let _ = Debug.log "PONG" "" in
+      (model, PortSocket.send id ("PONG :tmi.twitch.tv"))
+    "PRIVMSG" -> (model, Cmd.none)
+    "ROOMSTATE" -> (model, Cmd.none)
+    "USERNOTICE" ->
+      let _ = Debug.log "usernotice" line in
+      (model, Cmd.none)
+    "001" -> (model, Cmd.none)
+    "002" -> (model, Cmd.none)
+    "003" -> (model, Cmd.none)
+    "004" -> (model, Cmd.none)
+    "353" -> (model, Cmd.none) --names list
+    "366" -> -- end of names list
+      let _ = Debug.log "joined room" (List.head (List.drop 1 line.params)) in
+      (model, Cmd.none)
+    "375" -> (model, Cmd.none)
+    "372" -> (model, Cmd.none)
+    "376" -> 
+      --let _ = Debug.log "logged in" "" in
+      ( {model | ircConnection = LoggedIn id (line.params |> List.head |> Maybe.withDefault "unknown")}
+      , Cmd.batch
+        [ PortSocket.send id "CAP REQ :twitch.tv/tags"
+        , PortSocket.send id "CAP REQ :twitch.tv/commands"
+        ]
+      )
+    _ ->
+      let _ = Debug.log message line in
+      (model, Cmd.none)
+
 
 chatConnectionUpdate : Model -> (Model, Cmd Msg)
 chatConnectionUpdate model =
@@ -429,6 +493,13 @@ chatConnectionUpdate model =
       )
     (_, _) ->
       (model, Cmd.none)
+
+reduce : (msg -> Model -> (Model, Cmd Msg)) -> msg -> (Model, Cmd Msg) -> (Model, Cmd Msg)
+reduce step msg (model, cmd) =
+  let
+    (m2, c2) = step msg model
+  in
+    (m2, Cmd.batch [cmd, c2])
 
 toUserDict : List User -> Dict String User
 toUserDict =
