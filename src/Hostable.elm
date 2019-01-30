@@ -36,6 +36,7 @@ import Url.Parser.Query
 
 requestLimit = 100
 requestRate = 5
+autoHostDelay = 10 * 60 * 1000
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
 sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
@@ -50,6 +51,7 @@ type Msg
   | Streams (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
+  | NextHost Posix
   | Response Msg
   | NextRequest Posix
   | CurrentZone Zone
@@ -262,8 +264,30 @@ update msg model =
     Videos _ (Err error) ->
       let _ = Debug.log "video fetch error" error in
       (model, Cmd.none)
+    NextHost time ->
+      ( {model | currentlyHosting = HostPending, time = time}
+        |> refreshUserStreams
+        |> fetchNextUserStreamBatch requestLimit
+      , Cmd.none
+      )
     Response subMsg ->
-      update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
+      let
+        (m2, cmd2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
+      in
+      if m2.currentlyHosting == HostPending && List.isEmpty m2.pendingRequests then
+        case View.sortedStreams m2 of
+          top :: _ ->
+            let
+              muser = Dict.get top.userId m2.users
+              name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
+              _ = Debug.log "picking" name
+            in
+              (m2, cmd2)
+          _ ->
+            let _ = Debug.log "no streams" "" in
+            (m2, cmd2)
+      else
+        (m2, cmd2)
     NextRequest time ->
       case model.pendingRequests of
         next :: rest ->
@@ -280,14 +304,9 @@ update msg model =
     Focused _ ->
       (model, Cmd.none)
     UI (View.Refresh) ->
-      (fetchNextUserStreamBatch requestLimit
-        { model
-        | liveStreams = Dict.empty
-        , pendingUserStreams = model.users
-          |> Dict.filter (\_ {persisted} -> persisted == True)
-          |> Dict.keys
-        , previewVersion = model.previewVersion + 1
-        }
+      ( { model | previewVersion = model.previewVersion + 1}
+        |> refreshUserStreams
+        |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
     UI (View.Logout) ->
       { model | auth = Nothing, authLogin = Nothing }
@@ -448,7 +467,7 @@ chatResponse id message line model =
         [_, target] ->
           case String.split " " target of
             "-"::_ ->
-              ({model | currentlyHosting = NotHosting}, Cmd.none)
+              ({model | currentlyHosting = HostIdle}, Cmd.none)
             channel::_ ->
               ({model | currentlyHosting = Hosting channel}, Cmd.none)
             _ -> (model, Cmd.none)
@@ -463,7 +482,7 @@ chatResponse id message line model =
             |> List.head
             |> Maybe.withDefault "unknown"
       in
-      ({model | ircConnection = Joined id user channel, currentlyHosting = NotHosting }, Cmd.none)
+      ({model | ircConnection = Joined id user channel, currentlyHosting = HostIdle }, Cmd.none)
     "NOTICE" ->
       case line.params of
         ["*", "Improperly formatted auth"] ->
@@ -644,6 +663,10 @@ subscriptions model =
         Sub.none
       else
         Time.every (1000/requestRate) NextRequest
+    , if model.currentlyHosting == HostIdle then
+        Time.every autoHostDelay NextHost
+      else
+        Sub.none
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , MeasureText.textSize TextSize
     , PortSocket.receive SocketEvent
@@ -703,6 +726,15 @@ fetchNextUserStreamBatch batch model =
   { model
   | pendingUserStreams = List.drop batch model.pendingUserStreams
   } |> appendRequests [fetchStreamsByUserIds <| List.take batch model.pendingUserStreams]
+
+refreshUserStreams : Model -> Model
+refreshUserStreams model =
+  { model
+  | liveStreams = Dict.empty
+  , pendingUserStreams = model.users
+    |> Dict.filter (\_ {persisted} -> persisted == True)
+    |> Dict.keys
+  }
 
 fetchNextGameBatch : Int -> Model -> Model
 fetchNextGameBatch batch model =

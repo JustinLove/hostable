@@ -1,4 +1,4 @@
-module View exposing (Msg(..), AppMode(..), HostStatus(..), view, document)
+module View exposing (Msg(..), AppMode(..), HostStatus(..), view, document, sortedStreams)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -47,7 +47,8 @@ type AppMode
 
 type HostStatus
   = Incapable
-  | NotHosting
+  | HostIdle
+  | HostPending
   | Hosting String
 
 boxWidth = 70
@@ -129,10 +130,8 @@ navigationItem current target itemId title =
     ]
 
 liveStreamsView model =
-  model.liveStreams
-    |> Dict.values
-    |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
-    |> List.sortBy ((rankStream model)>>negate)
+  model
+    |> sortedStreams
     |> List.map (\stream -> (stream.channelId, (streamView model stream)))
     |> Keyed.ul [ id "streams", class "streams" ]
 
@@ -249,6 +248,13 @@ displayAddingComment addingComment userId =
       ]
   else
     li [ onClick (AddComment userId) ] [ text "+"]
+
+-- sortedStreams : Model -> List Stream
+sortedStreams model =
+  model.liveStreams
+    |> Dict.values
+    |> List.filter (\stream -> Dict.get stream.userId model.users |> Maybe.map .persisted |> Maybe.withDefault False)
+    |> List.sortBy ((rankStream model)>>negate)
 
 --rankStream : Model -> Stream -> Float
 rankStream model stream =
