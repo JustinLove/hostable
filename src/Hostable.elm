@@ -59,6 +59,7 @@ type Msg
 
 type ConnectionStatus
   = Disconnected
+  | Rejected
   | Connecting String Float
   | Connected PortSocket.Id
   | LoggedIn PortSocket.Id String
@@ -394,9 +395,9 @@ update msg model =
       case model.ircConnection of
         Disconnected ->
           (model, Cmd.none)
-        Connecting _ timeout ->
+        Rejected ->
           (model, Cmd.none)
-        Connected _ ->
+        Connecting _ timeout ->
           (model, Cmd.none)
         _ ->
           ( {model | ircConnection = Connecting twitchIrc 1000}
@@ -445,6 +446,13 @@ chatResponse id message line model =
             |> Maybe.withDefault "unknown"
       in
       ({model | ircConnection = Joined id user channel}, Cmd.none)
+    "NOTICE" ->
+      case line.params of
+        ["*", "Improperly formatted auth"] ->
+          let _ = Debug.log "Authentication failed" line.params in
+          ({model | ircConnection = Rejected}, PortSocket.close id)
+        _ -> 
+          (model, Cmd.none)
     "PART" ->
       let
           user = line.prefix
