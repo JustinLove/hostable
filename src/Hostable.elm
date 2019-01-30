@@ -5,10 +5,13 @@ import MeasureText
 import Persist exposing (Persist, Export, User, Game)
 import Persist.Encode
 import Persist.Decode
+import PortSocket
 import Twitch.Helix.Decode as Helix exposing (Stream)
 import Twitch.Helix as Helix
 import Twitch.Kraken.Decode as Kraken
 import Twitch.Kraken as Kraken
+import Twitch.Tmi.Chat as Chat
+--import Twitch.Tmi.ChatSamples as Chat
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
@@ -19,6 +22,7 @@ import Browser.Dom as Dom
 import File
 import File.Download
 import Task
+import Parser.Advanced as Parser
 import Process
 import Http
 import Time exposing (Posix, Zone)
@@ -32,6 +36,7 @@ import Url.Parser.Query
 
 requestLimit = 100
 requestRate = 5
+twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 
 type Msg
   = Loaded (Maybe Persist)
@@ -49,6 +54,16 @@ type Msg
   | TextSize MeasureText.TextSize
   | Focused (Result Dom.Error ())
   | UI (View.Msg)
+  | SocketEvent PortSocket.Id PortSocket.Event
+  | Reconnect Posix
+
+type ConnectionStatus
+  = Disconnected
+  | Connecting String Float
+  | Connected PortSocket.Id
+  | LoggedIn PortSocket.Id String
+  | Joining PortSocket.Id String String
+  | Joined PortSocket.Id String String
 
 type alias Model =
   { users : Dict String User
@@ -58,6 +73,7 @@ type alias Model =
   , events : Dict String (List Event)
   , auth : Maybe String
   , authLogin : Maybe String
+  , ircConnection : ConnectionStatus
   , pendingUsers : List String
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
@@ -77,7 +93,7 @@ type alias Model =
 
 main = Browser.document
   { init = init
-  , update = update
+  , update = updateWithChecks
   , subscriptions = subscriptions
   , view = View.document UI
   }
@@ -96,6 +112,7 @@ init href =
     , events = Dict.empty
     , auth = auth
     , authLogin = Nothing
+    , ircConnection = Disconnected
     , pendingUsers = []
     , pendingUserStreams = []
     , pendingRequests = []
@@ -120,6 +137,13 @@ init href =
       |> Cmd.batch
     ]
   )
+
+updateWithChecks msg model =
+  let
+    (m2,cmd2) = update msg model
+    (m3,cmd3) = chatConnectionUpdate m2
+  in
+    (m3,Cmd.batch[cmd3, cmd2])
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -349,6 +373,62 @@ update msg model =
       } |> persist
     UI (View.Navigate mode) ->
       ( {model | appMode = mode}, Cmd.none)
+    SocketEvent id (PortSocket.Error value) ->
+      let _ = Debug.log "websocket error" value in
+      (model, Cmd.none)
+    SocketEvent id (PortSocket.Open url) ->
+      let _ = Debug.log "websocket open" id in
+        ({model | ircConnection = Connected id}, PortSocket.send id ("NICK justinfan" ++ (String.fromInt (modBy 1000000 (Time.posixToMillis model.time)))))
+    SocketEvent id (PortSocket.Close url) ->
+      let _ = Debug.log "websocket closed" id in
+      case model.ircConnection of
+        Disconnected ->
+          (model, Cmd.none)
+        Connecting _ timeout ->
+          (model, Cmd.none)
+        _ ->
+          ( {model | ircConnection = Connecting twitchIrc 1000}
+          , Cmd.none
+          )
+    SocketEvent id (PortSocket.Message message) ->
+      let _ = Debug.log "websocket message" message in
+      case (Parser.run Chat.message message) of
+        Ok lines ->
+          --List.foldl (reduce (chatResponse id message)) (model, Cmd.none) lines
+          (model, Cmd.none)
+        Err err ->
+          let _ = Debug.log message err in
+          (model, Cmd.none)
+    Reconnect time ->
+      case Debug.log "reconnect" model.ircConnection of
+        Connecting url timeout ->
+          ( {model | ircConnection = Connecting url (timeout*2)}
+          , PortSocket.connect url
+          )
+        _ ->
+          (model, Cmd.none)
+
+chatConnectionUpdate : Model -> (Model, Cmd Msg)
+chatConnectionUpdate model =
+  case (model.ircConnection, model.authLogin) of
+    (Disconnected, Just _) ->
+      ( {model | ircConnection = Connecting twitchIrc 1000}
+      , Cmd.none
+      )
+    (LoggedIn id login, Just channel) ->
+      ( {model | ircConnection = Joining id login channel}
+      , PortSocket.send id ("JOIN #" ++ channel)
+      )
+    (Joining id login channel, Nothing) ->
+      ( {model | ircConnection = Disconnected}
+      , PortSocket.close id
+      )
+    (Joined id login channel, Nothing) ->
+      ( {model | ircConnection = Disconnected}
+      , PortSocket.close id
+      )
+    (_, _) ->
+      (model, Cmd.none)
 
 toUserDict : List User -> Dict String User
 toUserDict =
@@ -457,6 +537,10 @@ subscriptions model =
         Time.every (1000/requestRate) NextRequest
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , MeasureText.textSize TextSize
+    , PortSocket.receive SocketEvent
+    , case model.ircConnection of
+        Connecting _ timeout-> Time.every timeout Reconnect
+        _ -> Sub.none
     ]
 
 importUser : Helix.User -> User
