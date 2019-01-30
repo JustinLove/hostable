@@ -38,6 +38,7 @@ requestLimit = 100
 requestRate = 5
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
+sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
 
 type Msg
   = Loaded (Maybe Persist)
@@ -441,6 +442,8 @@ chatResponse id message line model =
       case line.params of
         [_, target] ->
           case String.split " " target of
+            "-"::_ ->
+              ({model | currentlyHosting = NotHosting}, Cmd.none)
             channel::_ ->
               ({model | currentlyHosting = Hosting channel}, Cmd.none)
             _ -> (model, Cmd.none)
