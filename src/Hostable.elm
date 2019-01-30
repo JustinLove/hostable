@@ -15,7 +15,7 @@ import Twitch.Tmi.Chat as Chat
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
-import View exposing (AppMode(..))
+import View exposing (AppMode(..), HostStatus(..))
 
 import Browser
 import Browser.Dom as Dom
@@ -37,6 +37,7 @@ import Url.Parser.Query
 requestLimit = 100
 requestRate = 5
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
+sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
 
 type Msg
   = Loaded (Maybe Persist)
@@ -79,6 +80,7 @@ type alias Model =
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
+  , currentlyHosting : HostStatus
   , previewVersion : Int
   , appMode : AppMode
   , selectedUser : Maybe String
@@ -118,6 +120,7 @@ init href =
     , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
+    , currentlyHosting = NotHosting
     , previewVersion = 0
     , appMode = LiveStreams
     , selectedUser = Nothing
@@ -130,6 +133,7 @@ init href =
     , zone = Time.utc
     , labelWidths = Dict.empty
     }
+    --|> update (SocketEvent 0 (PortSocket.Message sampleHost)) |> Tuple.first
   , Cmd.batch 
     [ Task.perform CurrentZone Time.here
     , ScheduleGraph.allDays
@@ -434,7 +438,13 @@ chatResponse id message line model =
     "CAP" -> (model, Cmd.none)
     "HOSTTARGET" ->
       let _ = Debug.log "hosttarget" line in
-      (model, Cmd.none)
+      case line.params of
+        [_, target] ->
+          case String.split " " target of
+            channel::_ ->
+              ({model | currentlyHosting = Hosting channel}, Cmd.none)
+            _ -> (model, Cmd.none)
+        _ -> (model, Cmd.none)
     "JOIN" ->
       let
           user = line.prefix

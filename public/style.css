@@ -9,6 +9,7 @@ nav li .navigation-controls { margin-right: 0.5em; }
 
 .streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 225px; padding: 10px; }
+.hosted { background: rgb(100, 65, 164); }
 .graphics { width: 240px; height: 95px; position: relative; }
 .screen { width: 168px; height: 95px; position: absolute; right: 0;}
 .box-art { position: absolute; left: 0; }

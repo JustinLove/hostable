@@ -1,4 +1,4 @@
-module View exposing (Msg(..), AppMode(..), view, document)
+module View exposing (Msg(..), AppMode(..), HostStatus(..), view, document)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -43,6 +43,10 @@ type AppMode
   = LiveStreams
   | GameScores
   | TagScores
+
+type HostStatus
+  = NotHosting
+  | Hosting String
 
 boxWidth = 70
 boxHeight = 95
@@ -139,7 +143,11 @@ streamView model stream =
     game = gameFor model.games stream
     mevents = Dict.get stream.userId model.events
   in
-  li [ class "stream" ]
+  li [ classList
+       [ ("stream", True)
+       , ("hosted", Hosting name == model.currentlyHosting)
+       ]
+     ]
     [ div [ class "graphics" ]
       [ displayBoxArt game
       , a [ href ("https://twitch.tv/"++name) ]
