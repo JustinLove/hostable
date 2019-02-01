@@ -50,6 +50,7 @@ type Msg
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
+  | ChannelStream (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
   | NextHost Posix
@@ -262,6 +263,23 @@ update msg model =
     Streams (Err error) ->
       let _= Debug.log "stream fetch error" error in
       (model, Cmd.none)
+    ChannelStream (Ok (stream::_)) ->
+      ( { model
+        | channelStatus = Live
+        , autoHostStatus = case model.autoHostStatus of
+          Pending -> AutoEnabled
+          _ -> model.autoHostStatus
+        }
+      , Cmd.none)
+    ChannelStream (Ok []) ->
+      ( { model | channelStatus = case model.channelStatus of
+          Live -> Offline
+          _ -> model.channelStatus
+        }
+      , Cmd.none)
+    ChannelStream (Err error) ->
+      let _= Debug.log "channel stream fetch error" error in
+      (model, Cmd.none)
     Games (Ok news) ->
       { model
       | games = List.foldl (\g games ->
@@ -286,6 +304,9 @@ update msg model =
       (model, Cmd.none)
     NextHost time ->
       ( {model | autoHostStatus = Pending, time = time}
+        |> appendRequests [model.autoChannel
+          |> Maybe.map fetchChannelStream
+          |> Maybe.withDefault Cmd.none]
         |> refreshUserStreams
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none
@@ -294,7 +315,9 @@ update msg model =
       let
         (m2, cmd2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
       in
-      if m2.autoHostStatus == Pending && List.isEmpty m2.pendingRequests then
+      if m2.channelStatus == Offline
+      && m2.autoHostStatus == Pending
+      && List.isEmpty m2.pendingRequests then
         case View.sortedStreams m2 of
           top :: _ ->
             let
@@ -892,6 +915,20 @@ fetchStreamsByUserIds userIds =
       , tagger = Response << Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
       }
+
+fetchChannelStreamUrl : String -> String
+fetchChannelStreamUrl login =
+  "https://api.twitch.tv/helix/streams?user_login=" ++ login
+
+fetchChannelStream : String -> Cmd Msg
+fetchChannelStream login =
+  Helix.send <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = Helix.streams
+    , tagger = Response << ChannelStream
+    , url = (fetchChannelStreamUrl login)
+    }
 
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
