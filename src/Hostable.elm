@@ -78,6 +78,7 @@ type alias Model =
   , events : Dict String (List Event)
   , auth : Maybe String
   , authLogin : Maybe String
+  , autoChannel : Maybe String
   , ircConnection : ConnectionStatus
   , pendingUsers : List String
   , pendingUserStreams : List String
@@ -119,6 +120,7 @@ init href =
     , events = Dict.empty
     , auth = auth
     , authLogin = Nothing
+    , autoChannel = Nothing
     , ircConnection = Disconnected
     , pendingUsers = []
     , pendingUserStreams = []
@@ -194,6 +196,7 @@ update msg model =
     Self (Ok (user::_)) ->
       ( { model
         | authLogin = Just user.displayName
+        , autoChannel = Just user.displayName
         }
       , Cmd.none
       )
@@ -311,7 +314,7 @@ update msg model =
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
     UI (View.Logout) ->
-      { model | auth = Nothing, authLogin = Nothing }
+      { model | auth = Nothing, authLogin = Nothing, autoChannel = Nothing }
         |> persist
     UI (View.Export) ->
       ( model
@@ -542,7 +545,7 @@ chatResponse id message line model =
 
 chatConnectionUpdate : Model -> (Model, Cmd Msg)
 chatConnectionUpdate model =
-  case (model.ircConnection, model.authLogin) of
+  case (model.ircConnection, model.autoChannel) of
     (Disconnected, Just _) ->
       ( {model | ircConnection = Connecting twitchIrc 1000}
       , Cmd.none

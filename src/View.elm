@@ -152,7 +152,7 @@ autoHostEnabledView model =
       , disabled (model.autoHostStatus == Incapable)
       ] []
     , label [ for "autohost" ]
-      [ text "Auto-Host"
+      [ text ("Auto-Host " ++ (model.autoChannel |> Maybe.withDefault "?"))
       ]
     ]
 
