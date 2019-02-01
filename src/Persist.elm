@@ -9,6 +9,7 @@ type alias Persist =
   , scoredTags : Dict String Float
   , events : Dict String (List Event)
   , auth : Maybe String
+  , autoChannel : Maybe String
   }
 
 type alias Export =

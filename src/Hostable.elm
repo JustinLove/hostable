@@ -174,6 +174,9 @@ update msg model =
             , auth = case state.auth of
               Just _ -> state.auth
               Nothing -> model.auth
+            , autoChannel = case state.autoChannel of
+              Just _ -> state.autoChannel
+              Nothing -> model.authLogin
             , pendingUserStreams = List.map .id state.users
             }
           Nothing ->
@@ -200,7 +203,10 @@ update msg model =
       ( { model
         | authLogin = Just user.login
         }
-        |> appendRequests [ fetchChannel user.login ]
+        |> appendRequests (case model.autoChannel of
+          Just _ -> []
+          Nothing -> [ fetchChannel user.login ]
+        )
       , Cmd.none
       )
     Self (Ok _) ->
@@ -210,13 +216,12 @@ update msg model =
       let _ = Debug.log "self fetch error" error in
       (model, Cmd.none)
     Channel (Ok (user::_)) ->
-      ( { model
-        | autoChannel = Just user.login
-        , channelStatus = Unknown
-        }
-        |> appendRequests [ fetchChannelStream user.login ]
-      , Cmd.none
-      )
+      { model
+      | autoChannel = Just user.login
+      , channelStatus = Unknown
+      }
+      |> appendRequests [ fetchChannelStream user.login ]
+      |> persist
     Channel (Ok _) ->
       let _ = Debug.log "channel did not find user" "" in
       (model, Cmd.none)
@@ -358,7 +363,7 @@ update msg model =
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
     UI (View.Logout) ->
-      { model | auth = Nothing, authLogin = Nothing, autoChannel = Nothing }
+      { model | auth = Nothing, authLogin = Nothing }
         |> persist
     UI (View.Export) ->
       ( model
@@ -740,6 +745,7 @@ saveState model =
       model.scoredTags
       model.events
       model.auth
+      model.autoChannel
     |> Persist.Encode.persist
     |> LocalStorage.saveJson
 

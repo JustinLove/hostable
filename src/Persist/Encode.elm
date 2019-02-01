@@ -9,16 +9,22 @@ import Time
 persist : Persist -> Value
 persist p =
   object
-    <| List.append
-      [ ("users", list user <| List.filter .persisted p.users)
-      , ("games", list game p.games)
-      , ("scoredTags", dict identity float p.scoredTags)
-      , ("events", events p.events)
+    <| List.concat
+      [
+        [ ("users", list user <| List.filter .persisted p.users)
+        , ("games", list game p.games)
+        , ("scoredTags", dict identity float p.scoredTags)
+        , ("events", events p.events)
+        ]
+      , (case p.auth of
+          Just auth -> [("auth", string auth)]
+          Nothing -> []
+        )
+      , (case p.autoChannel of
+          Just channel -> [("autoChannel", string channel)]
+          Nothing -> []
+        )
       ]
-      (case p.auth of
-        Just auth -> [("auth", string auth)]
-        Nothing -> []
-      )
 
 export : Export -> Value
 export e =
