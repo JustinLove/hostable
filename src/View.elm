@@ -1,4 +1,4 @@
-module View exposing (Msg(..), AppMode(..), HostStatus(..), view, document, sortedStreams)
+module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..), view, document, sortedStreams)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -39,17 +39,23 @@ type Msg
   | SelectTag String
   | UpdateTagScore String Float
   | Navigate AppMode
+  | AutoHost Bool
 
 type AppMode
   = LiveStreams
   | GameScores
   | TagScores
 
-type HostStatus
-  = Incapable
-  | HostIdle
-  | HostPending
+type ChannelStatus
+  = Offline
   | Hosting String
+  | Live
+
+type AutoHostStatus
+  = Incapable
+  | AutoDisabled
+  | AutoEnabled
+  | Pending
 
 boxWidth = 70
 boxHeight = 95
@@ -129,6 +135,27 @@ navigationItem current target itemId title =
       ]
     ]
 
+autoHostEnabledView model =
+  div [ class "autohost-controls" ]
+    [ input
+      [ type_ "checkbox"
+      , Html.Attributes.name "autohost"
+      , id "autohost"
+      , value "autohost"
+      , onCheck AutoHost
+      , checked (case model.autoHostStatus of
+        Incapable -> False
+        AutoDisabled -> False
+        AutoEnabled -> True
+        Pending -> True
+      )
+      , disabled (model.autoHostStatus == Incapable)
+      ] []
+    , label [ for "autohost" ]
+      [ text "Auto-Host"
+      ]
+    ]
+
 liveStreamsView model =
   model
     |> sortedStreams
@@ -146,7 +173,7 @@ streamView model stream =
   in
   li [ classList
        [ ("stream", True)
-       , ("hosted", Hosting name == model.currentlyHosting)
+       , ("hosted", Hosting name == model.channelStatus)
        ]
      ]
     [ div [ class "graphics" ]
@@ -169,7 +196,7 @@ streamView model stream =
       [ div [ class "info-text" ]
         [ div [ class "viewers-channel" ]
           [ span [ class "viewers" ] [ text <| String.fromInt stream.viewerCount ]
-          , case model.currentlyHosting of
+          , case model.autoHostStatus of
             Incapable ->
               input
                 [ class "channel"
@@ -392,6 +419,8 @@ displayLogin model =
         [ span [ class "user" ] [ text <| Maybe.withDefault "--" model.authLogin ]
         , text " "
         , a [ href "#", onClick Logout ] [ text "logout" ]
+        , text " "
+        , autoHostEnabledView model
         ]
     Nothing ->
       a [ href (authorizeUrl (urlForRedirect model.location)) ] [ text "login" ]

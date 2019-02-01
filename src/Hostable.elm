@@ -15,7 +15,7 @@ import Twitch.Tmi.Chat as Chat
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
-import View exposing (AppMode(..), HostStatus(..))
+import View exposing (AppMode(..), ChannelStatus(..), AutoHostStatus(..))
 
 import Browser
 import Browser.Dom as Dom
@@ -83,7 +83,8 @@ type alias Model =
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
-  , currentlyHosting : HostStatus
+  , channelStatus : ChannelStatus
+  , autoHostStatus : AutoHostStatus
   , previewVersion : Int
   , appMode : AppMode
   , selectedUser : Maybe String
@@ -123,7 +124,8 @@ init href =
     , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
-    , currentlyHosting = Incapable
+    , channelStatus = Offline
+    , autoHostStatus = Incapable
     , previewVersion = 0
     , appMode = LiveStreams
     , selectedUser = Nothing
@@ -265,7 +267,7 @@ update msg model =
       let _ = Debug.log "video fetch error" error in
       (model, Cmd.none)
     NextHost time ->
-      ( {model | currentlyHosting = HostPending, time = time}
+      ( {model | autoHostStatus = Pending, time = time}
         |> refreshUserStreams
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none
@@ -274,7 +276,7 @@ update msg model =
       let
         (m2, cmd2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
       in
-      if m2.currentlyHosting == HostPending && List.isEmpty m2.pendingRequests then
+      if m2.autoHostStatus == Pending && List.isEmpty m2.pendingRequests then
         case View.sortedStreams m2 of
           top :: _ ->
             let
@@ -405,6 +407,18 @@ update msg model =
       } |> persist
     UI (View.Navigate mode) ->
       ( {model | appMode = mode}, Cmd.none)
+    UI (View.AutoHost enabled) ->
+      ( {model | autoHostStatus = Debug.log "status" <| case (model.autoHostStatus, enabled) of
+        (Incapable, _) -> Incapable
+        (AutoDisabled, True) -> AutoEnabled
+        (AutoDisabled, False) -> AutoDisabled
+        (AutoEnabled, False) -> AutoDisabled
+        (AutoEnabled, True) -> AutoEnabled
+        (Pending, False) -> AutoDisabled
+        (Pending, True) -> Pending
+      }
+      , Cmd.none
+      )
     SocketEvent id (PortSocket.Error value) ->
       let _ = Debug.log "websocket error" value in
       (model, Cmd.none)
@@ -429,7 +443,7 @@ update msg model =
         Rejected ->
           (model, Cmd.none)
         _ ->
-          ( {model | ircConnection = Connecting twitchIrc 1000, currentlyHosting = Incapable}
+          ( {model | ircConnection = Connecting twitchIrc 1000, channelStatus = Offline, autoHostStatus = Incapable}
           , Cmd.none
           )
     SocketEvent id (PortSocket.Message message) ->
@@ -467,9 +481,9 @@ chatResponse id message line model =
         [_, target] ->
           case String.split " " target of
             "-"::_ ->
-              ({model | currentlyHosting = HostIdle}, Cmd.none)
+              ({model | channelStatus = Offline}, Cmd.none)
             channel::_ ->
-              ({model | currentlyHosting = Hosting channel}, Cmd.none)
+              ({model | channelStatus = Hosting channel}, Cmd.none)
             _ -> (model, Cmd.none)
         _ -> (model, Cmd.none)
     "JOIN" ->
@@ -482,7 +496,7 @@ chatResponse id message line model =
             |> List.head
             |> Maybe.withDefault "unknown"
       in
-      ({model | ircConnection = Joined id user channel, currentlyHosting = HostIdle }, Cmd.none)
+      ({model | ircConnection = Joined id user channel, channelStatus = Offline, autoHostStatus = AutoDisabled }, Cmd.none)
     "NOTICE" ->
       case line.params of
         ["*", "Improperly formatted auth"] ->
@@ -663,7 +677,7 @@ subscriptions model =
         Sub.none
       else
         Time.every (1000/requestRate) NextRequest
-    , if model.currentlyHosting == HostIdle then
+    , if model.channelStatus == Offline && model.autoHostStatus == AutoEnabled then
         Time.every autoHostDelay NextHost
       else
         Sub.none
