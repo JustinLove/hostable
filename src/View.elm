@@ -48,7 +48,8 @@ type AppMode
   | TagScores
 
 type ChannelStatus
-  = Offline
+  = Unknown
+  | Offline
   | Hosting String
   | Live
 

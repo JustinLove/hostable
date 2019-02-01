@@ -129,7 +129,7 @@ init href =
     , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
-    , channelStatus = Offline
+    , channelStatus = Unknown
     , autoHostStatus = Incapable
     , previewVersion = 0
     , appMode = LiveStreams
@@ -212,6 +212,7 @@ update msg model =
     Channel (Ok (user::_)) ->
       ( { model
         | autoChannel = Just user.login
+        , channelStatus = Unknown
         }
         |> appendRequests [ fetchChannelStream user.login ]
       , Cmd.none
@@ -273,13 +274,18 @@ update msg model =
       , Cmd.none)
     ChannelStream (Ok []) ->
       ( { model | channelStatus = case model.channelStatus of
+          Unknown -> Offline
+          Offline -> Offline
+          Hosting _ -> model.channelStatus
           Live -> Offline
-          _ -> model.channelStatus
         }
       , Cmd.none)
     ChannelStream (Err error) ->
       let _= Debug.log "channel stream fetch error" error in
-      (model, Cmd.none)
+      ( { model
+        | channelStatus = Unknown
+        }
+      , Cmd.none)
     Games (Ok news) ->
       { model
       | games = List.foldl (\g games ->
@@ -487,7 +493,10 @@ update msg model =
         Rejected ->
           (model, Cmd.none)
         _ ->
-          ( {model | ircConnection = Connecting twitchIrc 1000, channelStatus = Offline, autoHostStatus = Incapable}
+          ( { model
+            | ircConnection = Connecting twitchIrc 1000
+            , autoHostStatus = Incapable
+            }
           , Cmd.none
           )
     SocketEvent id (PortSocket.Message message) ->
@@ -525,7 +534,14 @@ chatResponse id message line model =
         [_, target] ->
           case String.split " " target of
             "-"::_ ->
-              ({model | channelStatus = Offline}, Cmd.none)
+              ( { model
+                | channelStatus = Unknown
+                }
+                |> appendRequests [model.autoChannel
+                  |> Maybe.map fetchChannelStream
+                  |> Maybe.withDefault Cmd.none]
+              , Cmd.none
+              )
             channel::_ ->
               ({model | channelStatus = Hosting channel}, Cmd.none)
             _ -> (model, Cmd.none)
@@ -540,7 +556,12 @@ chatResponse id message line model =
             |> List.head
             |> Maybe.withDefault "unknown"
       in
-      ({model | ircConnection = Joined id user channel, channelStatus = Offline, autoHostStatus = AutoDisabled }, Cmd.none)
+      ( { model
+        | ircConnection = Joined id user channel
+        , autoHostStatus = AutoDisabled
+        }
+      , Cmd.none
+      )
     "NOTICE" ->
       case line.params of
         ["*", "Improperly formatted auth"] ->
