@@ -197,11 +197,9 @@ update msg model =
       (model, Cmd.none)
     Self (Ok (user::_)) ->
       ( { model
-        | authLogin = Just user.displayName
-        , pendingRequests =
-          List.append model.pendingRequests
-            [ fetchChannel user.displayName ]
+        | authLogin = Just user.login
         }
+        |> appendRequests [ fetchChannel user.login ]
       , Cmd.none
       )
     Self (Ok _) ->
@@ -212,7 +210,7 @@ update msg model =
       (model, Cmd.none)
     Channel (Ok (user::_)) ->
       ( { model
-        | autoChannel = Just user.displayName
+        | autoChannel = Just user.login
         }
       , Cmd.none
       )
@@ -455,6 +453,12 @@ update msg model =
         (Pending, False) -> AutoDisabled
         (Pending, True) -> Pending
       }
+      , Cmd.none
+      )
+    UI (View.HostOnChannel name) ->
+      let lower = String.toLower name in
+      ( model
+        |> appendRequests [ fetchChannel name ]
       , Cmd.none
       )
     SocketEvent id (PortSocket.Error value) ->

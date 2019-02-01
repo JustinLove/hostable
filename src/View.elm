@@ -40,6 +40,7 @@ type Msg
   | UpdateTagScore String Float
   | Navigate AppMode
   | AutoHost Bool
+  | HostOnChannel String
 
 type AppMode
   = LiveStreams
@@ -106,6 +107,19 @@ headerView model =
         , on "change" <| targetValue Json.Decode.string AddChannel
         ] []
       ]
+    , if model.autoHostStatus == Incapable then
+        text ""
+      else
+        div [ class "add-channel" ]
+          [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
+          , input
+            [ type_ "text"
+            , id "hostonchannel"
+            , name "hostonchannel"
+            , value (model.autoChannel |> Maybe.withDefault "")
+            , on "change" <| targetValue Json.Decode.string HostOnChannel
+            ] []
+          ]
     , input
       [ type_ "file"
       , on "change" (targetFiles Import)
