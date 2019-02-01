@@ -71,6 +71,7 @@ type ConnectionStatus
   | LoggedIn PortSocket.Id String
   | Joining PortSocket.Id String String
   | Joined PortSocket.Id String String
+  | Parting PortSocket.Id String String
 
 type alias Model =
   { users : Dict String User
@@ -212,6 +213,7 @@ update msg model =
       ( { model
         | autoChannel = Just user.login
         }
+        |> appendRequests [ fetchChannelStream user.login ]
       , Cmd.none
       )
     Channel (Ok _) ->
@@ -592,15 +594,25 @@ chatConnectionUpdate model =
       ( {model | ircConnection = Connecting twitchIrc 1000}
       , Cmd.none
       )
-    (LoggedIn id login, Just channel) ->
-      ( {model | ircConnection = Joining id login channel}
-      , PortSocket.send id ("JOIN #" ++ channel)
+    (LoggedIn id login, Just target) ->
+      ( {model | ircConnection = Joining id login target}
+      , PortSocket.send id ("JOIN #" ++ target)
       )
     (Joining id login channel, Nothing) ->
       ( {model | ircConnection = Disconnected}
       , PortSocket.close id
       )
     (Joined id login channel, Nothing) ->
+      ( {model | ircConnection = Disconnected}
+      , PortSocket.close id
+      )
+    (Joined id login channel, Just target) ->
+      if channel /= ("#"++target) then
+        ( {model | ircConnection = Parting id login channel}
+        , PortSocket.send id ("part " ++ channel) )
+      else
+        (model, Cmd.none)
+    (Parting id login channel, Nothing) ->
       ( {model | ircConnection = Disconnected}
       , PortSocket.close id
       )
