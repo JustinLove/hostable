@@ -45,6 +45,7 @@ type Msg
   = Loaded (Maybe Persist)
   | Imported (Result Json.Decode.Error Export)
   | Self (Result Http.Error (List Helix.User))
+  | Channel (Result Http.Error (List Helix.User))
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
@@ -196,7 +197,9 @@ update msg model =
     Self (Ok (user::_)) ->
       ( { model
         | authLogin = Just user.displayName
-        , autoChannel = Just user.displayName
+        , pendingRequests =
+          List.append model.pendingRequests
+            [ fetchChannel user.displayName ]
         }
       , Cmd.none
       )
@@ -204,8 +207,20 @@ update msg model =
       let _ = Debug.log "self did not find user" "" in
       (model, Cmd.none)
     Self (Err error) ->
-      { e = Debug.log "self fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _ = Debug.log "self fetch error" error in
+      (model, Cmd.none)
+    Channel (Ok (user::_)) ->
+      ( { model
+        | autoChannel = Just user.displayName
+        }
+      , Cmd.none
+      )
+    Channel (Ok _) ->
+      let _ = Debug.log "channel did not find user" "" in
+      (model, Cmd.none)
+    Channel (Err error) ->
+      let _=  Debug.log "channel fetch error" error in
+      (model, Cmd.none)
     Users (Ok users) ->
       { model
       | users = addUsers (List.map (importUser>>persistUser) users) model.users
@@ -216,24 +231,24 @@ update msg model =
       |> fetchNextUserStreamBatch requestLimit
       |> persist
     Users (Err error) ->
-      { e = Debug.log "user fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _ = Debug.log "user fetch error" error in
+      (model, Cmd.none)
     UserUpdate (Ok users) ->
       { model
       | users = addUsers (List.map (importUser>>persistUser) users) model.users
       }
       |> persist
     UserUpdate (Err error) ->
-      { e = Debug.log "user fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _ = Debug.log "user fetch error" error in
+      (model, Cmd.none)
     UnknownUsers (Ok users) ->
       ( { model
         | users = addUsers (List.map importUser users) model.users
         }
       , Cmd.none)
     UnknownUsers (Err error) ->
-      { e = Debug.log "unknown user fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _ = Debug.log "unknown user fetch error" error in
+      (model, Cmd.none)
     Streams (Ok streams) ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
@@ -245,8 +260,8 @@ update msg model =
         }
       , Cmd.none)
     Streams (Err error) ->
-      { e = Debug.log "stream fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _= Debug.log "stream fetch error" error in
+      (model, Cmd.none)
     Games (Ok news) ->
       { model
       | games = List.foldl (\g games ->
@@ -255,8 +270,8 @@ update msg model =
       }
       |> persist
     Games (Err error) ->
-      { e = Debug.log "game fetch error" error
-      , r = (model, Cmd.none)}.r
+      let _ = Debug.log "game fetch error" error in
+      (model, Cmd.none)
     Videos userId (Ok videos) ->
       { model
       | events = Dict.insert userId
@@ -806,6 +821,16 @@ fetchUsersByLogin users =
       , tagger = Response << Users
       , url = (fetchUsersByLoginUrl users)
       }
+
+fetchChannel : String -> Cmd Msg
+fetchChannel user =
+  Helix.send <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = Helix.users
+    , tagger = Response << Channel
+    , url = (fetchUsersByLoginUrl [user])
+    }
 
 fetchUsersByIdUrl : List String -> String
 fetchUsersByIdUrl ids =
