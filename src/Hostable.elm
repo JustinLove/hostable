@@ -284,10 +284,10 @@ update msg model =
               name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
               _ = Debug.log "picking" name
             in
-              (m2, cmd2)
+              ({m2 | autoHostStatus = AutoEnabled}, Cmd.batch [cmd2, hostChannel m2.ircConnection name])
           _ ->
             let _ = Debug.log "no streams" "" in
-            (m2, cmd2)
+            ({m2 | autoHostStatus = AutoEnabled}, cmd2)
       else
         (m2, cmd2)
     NextRequest time ->
@@ -360,10 +360,7 @@ update msg model =
       )
     UI (View.HostChannel target) ->
       ( model
-      , case model.ircConnection of
-          Joined id user channel ->
-            PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
-          _ -> Cmd.none
+      , hostChannel model.ircConnection target
       )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
@@ -408,7 +405,7 @@ update msg model =
     UI (View.Navigate mode) ->
       ( {model | appMode = mode}, Cmd.none)
     UI (View.AutoHost enabled) ->
-      ( {model | autoHostStatus = Debug.log "status" <| case (model.autoHostStatus, enabled) of
+      ( {model | autoHostStatus = case (model.autoHostStatus, enabled) of
         (Incapable, _) -> Incapable
         (AutoDisabled, True) -> AutoEnabled
         (AutoDisabled, False) -> AutoDisabled
@@ -571,6 +568,13 @@ reduce step msg (model, cmd) =
     (m2, c2) = step msg model
   in
     (m2, Cmd.batch [cmd, c2])
+
+hostChannel : ConnectionStatus -> String -> Cmd Msg
+hostChannel ircConnection target =
+  case ircConnection of
+    Joined id user channel ->
+      PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
+    _ -> Cmd.none
 
 toUserDict : List User -> Dict String User
 toUserDict =
