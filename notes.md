@@ -1,4 +1,3 @@
-- displayname vs username
 - ui for refresh when host button
 - getting hash from file url?
 - UI way to move oath keys

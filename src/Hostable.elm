@@ -49,6 +49,7 @@ type Msg
   | Users (Result Http.Error (List Helix.User))
   | UserUpdate (Result Http.Error (List Helix.User))
   | UnknownUsers (Result Http.Error (List Helix.User))
+  | HostingUser (Result Http.Error (List Helix.User))
   | Streams (Result Http.Error (List Stream))
   | ChannelStream (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
@@ -255,6 +256,18 @@ update msg model =
       , Cmd.none)
     UnknownUsers (Err error) ->
       let _ = Debug.log "unknown user fetch error" error in
+      (model, Cmd.none)
+    HostingUser (Ok (user::_)) ->
+      ( { model
+        | channelStatus = Hosting user.id
+        }
+      , Cmd.none
+      )
+    HostingUser (Ok _) ->
+      let _ = Debug.log "hosting did not find user" "" in
+      (model, Cmd.none)
+    HostingUser (Err error) ->
+      let _ = Debug.log "hosting fetch error" error in
       (model, Cmd.none)
     Streams (Ok streams) ->
       ( fetchNextGameBatch requestLimit
@@ -548,7 +561,7 @@ chatResponse id message line model =
               , Cmd.none
               )
             channel::_ ->
-              ({model | channelStatus = Hosting channel}, Cmd.none)
+              (model |> appendRequests [fetchHostingUser channel], Cmd.none)
             _ -> (model, Cmd.none)
         _ -> (model, Cmd.none)
     "JOIN" ->
@@ -927,6 +940,16 @@ fetchUnknownUsersById ids =
       , tagger = Response << UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
+
+fetchHostingUser : String -> Cmd Msg
+fetchHostingUser login =
+  Helix.send <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = Helix.users
+    , tagger = Response << HostingUser
+    , url = (fetchUsersByLoginUrl [login])
+    }
 
 fetchSelfUrl : String
 fetchSelfUrl =

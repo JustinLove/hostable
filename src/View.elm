@@ -182,13 +182,14 @@ streamView model stream =
   let
     muser = userFor model.users stream
     name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
+    userId = muser |> Maybe.map .id |> Maybe.withDefault "--"
     tags = muser |> Maybe.map .tags |> Maybe.withDefault []
     game = gameFor model.games stream
     mevents = Dict.get stream.userId model.events
   in
   li [ classList
        [ ("stream", True)
-       , ("hosted", Hosting name == model.channelStatus)
+       , ("hosted", Hosting userId == model.channelStatus)
        ]
      ]
     [ div [ class "graphics" ]
