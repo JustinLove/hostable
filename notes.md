@@ -1,0 +1,7 @@
+- displayname vs username
+- ui for refresh when host button
+- getting hash from file url?
+- UI way to move oath keys
+- streams not found? - need more context information
+- disconnect from chat when not relevant?
+- general UI overload
