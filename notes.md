@@ -1,4 +1,3 @@
-- disconnect from chat when not relevant?
 - UI way to move oath keys
-- general UI overload
+- disconnect from chat when not relevant?
 - streams not found? - need more context information

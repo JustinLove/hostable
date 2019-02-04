@@ -46,6 +46,7 @@ type AppMode
   = LiveStreams
   | GameScores
   | TagScores
+  | Settings
 
 type ChannelStatus
   = Unknown
@@ -78,6 +79,7 @@ view model =
       LiveStreams -> liveStreamsView model
       GameScores -> gamesView model
       TagScores -> tagsView model
+      Settings -> settingsView model
     , displayFooter
     ]
 
@@ -85,17 +87,25 @@ headerView model =
   header []
     [ div [ class "refresh" ] 
       [ button [onClick Refresh] [ text "Refresh" ]
-      , text " Requests: "
-      , text <| String.fromInt
-        <| ((List.length model.pendingRequests) + model.outstandingRequests)
       , text " "
-      , displayLogin model
+      , autoHostEnabledView model
       ]
+    , let
+        requests = ((List.length model.pendingRequests) + model.outstandingRequests)
+      in
+        if requests /= 0 then
+          div [ class "requests" ]
+            [ text " Requests: "
+            , text <| String.fromInt requests
+            ]
+        else
+          text ""
     , nav []
       [ ul []
         [ navigationItem model.appMode LiveStreams "live-streams" "Streams"
         , navigationItem model.appMode GameScores "game-scores" "Games"
         , navigationItem model.appMode TagScores "tag-scores" "Tags"
+        , navigationItem model.appMode Settings "settings" "Settings"
         ]
       ]
     , div [ class "add-channel" ]
@@ -108,24 +118,6 @@ headerView model =
         , on "change" <| targetValue Json.Decode.string AddChannel
         ] []
       ]
-    , if model.autoHostStatus == Incapable then
-        text ""
-      else
-        div [ class "add-channel" ]
-          [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
-          , input
-            [ type_ "text"
-            , id "hostonchannel"
-            , name "hostonchannel"
-            , value (model.autoChannel |> Maybe.withDefault "")
-            , on "change" <| targetValue Json.Decode.string HostOnChannel
-            ] []
-          ]
-    , input
-      [ type_ "file"
-      , on "change" (targetFiles Import)
-      ]
-      []
     , button [ onClick Export ] [ text "export" ]
     ] 
 
@@ -390,6 +382,36 @@ tagView model tag =
         ]
       ]
 
+settingsView model =
+  ul [ class "settings" ]
+    [ li []
+      [ text "Import data "
+      , input
+        [ type_ "file"
+        , on "change" (targetFiles Import)
+        ]
+        []
+      ]
+    , li []
+      [ text "login as: "
+      , displayLogin model
+      ]
+    , if model.autoHostStatus == Incapable then
+        text ""
+      else
+        li [ class "add-channel" ]
+          [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
+          , text " "
+          , input
+            [ type_ "text"
+            , id "hostonchannel"
+            , name "hostonchannel"
+            , value (model.autoChannel |> Maybe.withDefault "")
+            , on "change" <| targetValue Json.Decode.string HostOnChannel
+            ] []
+          ]
+    ]
+
 userFor : Dict String User -> Stream -> Maybe User
 userFor users stream =
   Dict.get stream.userId users
@@ -433,8 +455,6 @@ displayLogin model =
         [ span [ class "user" ] [ text <| Maybe.withDefault "--" model.authLogin ]
         , text " "
         , a [ href "#", onClick Logout ] [ text "logout" ]
-        , text " "
-        , autoHostEnabledView model
         ]
     Nothing ->
       a [ href (authorizeUrl (urlForRedirect model.location)) ] [ text "login" ]

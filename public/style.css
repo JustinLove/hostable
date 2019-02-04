@@ -6,6 +6,9 @@ header { display: flex; justify-content: space-between;}
 nav ul { list-style-type: none; display: flex; margin: 0;}
 nav li div { display: inline-block; }
 nav li .navigation-controls { margin-right: 0.5em; }
+.requests { position: absolute; top: 0; left 0; background: rgb(100, 65, 164); }
+
+.autohost-controls { display: inline-block; }
 
 .streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 225px; padding: 10px; }
@@ -75,6 +78,13 @@ input.channel {
   padding-left: 0.3em;
   padding-right: 0.3em;
   width: 60px;
+}
+
+.settings {
+  list-style-type: none;
+}
+.settings li {
+  margin: 0.5em;
 }
 
 svg.icon {
