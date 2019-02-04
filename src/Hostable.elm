@@ -98,6 +98,7 @@ type alias Model =
   , addingComment : Maybe String
   , selectedGame : Maybe String
   , selectedTag : Maybe String
+  , exportingAuth : Maybe String
   , location : Url
   , time : Posix
   , zone : Zone
@@ -140,6 +141,7 @@ init href =
     , addingComment = Nothing
     , selectedGame = Nothing
     , selectedTag = Nothing
+    , exportingAuth = Nothing
     , location = url
     , time = Time.millisToPosix 0
     , zone = Time.utc
@@ -399,6 +401,17 @@ update msg model =
         |> List.map (Task.perform receiveImported)
         |> Cmd.batch
       )
+    UI (View.ExportAuth exporting) ->
+      if exporting then
+        ({model | exportingAuth = model.auth}, Cmd.none)
+      else
+        ({model | exportingAuth = Nothing}, Cmd.none)
+    UI (View.CopyAuth controlId) ->
+      (model, SelectCopy.selectCopy controlId)
+    UI (View.ImportAuth token) ->
+      { model | auth = Just token, authLogin = Nothing }
+        |> fetchSelfIfAuth
+        |> persist
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
       if (List.filter

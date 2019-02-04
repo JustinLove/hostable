@@ -1,3 +1,2 @@
-- UI way to move oath keys
 - disconnect from chat when not relevant?
 - streams not found? - need more context information

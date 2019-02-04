@@ -26,6 +26,9 @@ type Msg
   | Logout
   | Export
   | Import (List File.File)
+  | ExportAuth Bool
+  | CopyAuth String
+  | ImportAuth String
   | AddChannel String
   | RemoveChannel String
   | HostClicked String String
@@ -396,6 +399,49 @@ settingsView model =
       [ text "login as: "
       , displayLogin model
       ]
+    , if model.auth == Nothing then
+        li []
+          [ label [ for "import-auth" ] [ text "Import OAUTH token" ]
+          , text " "
+          , input
+            [ type_ "text"
+            , id "import-auth"
+            , name "import-auth"
+            , on "change" <| targetValue Json.Decode.string ImportAuth
+            ] []
+          ]
+      else
+        li []
+          [ span [ class "export-auth-controls" ]
+              [ input
+                [ type_ "checkbox"
+                , Html.Attributes.name "enable-export-auth"
+                , id "enable-export-auth"
+                , value "enable-export-auth"
+                , onCheck ExportAuth
+                , checked (case model.exportingAuth of
+                  Just _ -> True
+                  Nothing -> False
+                )
+                , disabled (model.auth == Nothing)
+                ] []
+              , label [ for "enable-export-auth" ]
+                [ text "Export OAUTH token"
+                ]
+              ]
+          , text " "
+          , case model.exportingAuth of
+            Just auth ->
+              input
+                [ class "exporting"
+                , id "export-auth"
+                , Html.Events.onClick (CopyAuth "export-auth")
+                , readonly True
+                , value auth
+                ] []
+            Nothing ->
+              text ""
+          ]
     , if model.autoHostStatus == Incapable then
         text ""
       else
