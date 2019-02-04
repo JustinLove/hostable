@@ -212,7 +212,13 @@ streamView model stream =
         [ div [ class "viewers-channel" ]
           [ span [ class "viewers" ] [ text <| String.fromInt stream.viewerCount ]
           , case model.autoHostStatus of
-            Incapable ->
+            AutoEnabled ->
+              button
+                [ class "channel"
+                , id ("host-" ++ name)
+                , Html.Events.onClick (HostChannel name)
+                ] [ text ("/host " ++ name) ]
+            _ ->
               input
                 [ class "channel"
                 , id ("host-" ++ name)
@@ -220,12 +226,6 @@ streamView model stream =
                 , readonly True
                 , value ("/host " ++ name)
                 ] []
-            _ ->
-              button
-                [ class "channel"
-                , id ("host-" ++ name)
-                , Html.Events.onClick (HostChannel name)
-                ] [ text ("/host " ++ name) ]
           , if model.selectedUser == Just stream.userId then
               button [ onClick (RemoveChannel stream.userId) ] [ text "X" ]
             else

@@ -164,28 +164,28 @@ update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Loaded mstate ->
-      ( ( case mstate of
-          Just state ->
-            { model
-            | users = state.users |> toUserDict
-            , games = state.games |> toGameDict
-            , scoredTags = state.scoredTags
-            , events = state.events
-            , auth = case state.auth of
-              Just _ -> state.auth
-              Nothing -> model.auth
-            , autoChannel = case state.autoChannel of
-              Just _ -> state.autoChannel
-              Nothing -> model.authLogin
-            , pendingUserStreams = List.map .id state.users
-            }
-          Nothing ->
-            model
-        )
-        |> fetchNextUserBatch requestLimit
-        |> fetchNextUserStreamBatch requestLimit
-        |> fetchSelfIfAuth
-      , Cmd.none)
+      ( case mstate of
+        Just state ->
+          { model
+          | users = state.users |> toUserDict
+          , games = state.games |> toGameDict
+          , scoredTags = state.scoredTags
+          , events = state.events
+          , auth = case state.auth of
+            Just _ -> state.auth
+            Nothing -> model.auth
+          , autoChannel = case state.autoChannel of
+            Just _ -> state.autoChannel
+            Nothing -> model.authLogin
+          , pendingUserStreams = List.map .id state.users
+          }
+        Nothing ->
+          model
+      )
+      |> fetchNextUserBatch requestLimit
+      |> fetchNextUserStreamBatch requestLimit
+      |> fetchSelfIfAuth
+      |> persist -- save auth if captured from url
     Imported (Ok imported) ->
       { model
       | users = imported.users |> toUserDict
@@ -471,7 +471,7 @@ update msg model =
     UI (View.HostOnChannel name) ->
       let lower = String.toLower name in
       ( model
-        |> appendRequests [ fetchChannel name ]
+        |> appendRequests [ fetchChannel lower ]
       , Cmd.none
       )
     SocketEvent id (PortSocket.Error value) ->
@@ -765,7 +765,7 @@ subscriptions model =
         Sub.none
       else
         Time.every (1000/requestRate) NextRequest
-    , if model.channelStatus == Offline && model.autoHostStatus == AutoEnabled then
+    , if (model.channelStatus == Offline || model.channelStatus == Unknown) && model.autoHostStatus == AutoEnabled then
         Time.every autoHostDelay NextHost
       else
         Sub.none
