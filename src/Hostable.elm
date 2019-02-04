@@ -55,6 +55,7 @@ type Msg
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
   | NextHost Posix
+  | LivePoll Posix
   | Response Msg
   | NextRequest Posix
   | CurrentZone Zone
@@ -333,6 +334,13 @@ update msg model =
           |> Maybe.withDefault Cmd.none]
         |> refreshUserStreams
         |> fetchNextUserStreamBatch requestLimit
+      , Cmd.none
+      )
+    LivePoll time ->
+      ( {model | time = time}
+        |> appendRequests [model.autoChannel
+          |> Maybe.map fetchChannelStream
+          |> Maybe.withDefault Cmd.none]
       , Cmd.none
       )
     Response subMsg ->
@@ -778,8 +786,16 @@ subscriptions model =
         Sub.none
       else
         Time.every (1000/requestRate) NextRequest
-    , if (model.channelStatus == Offline || model.channelStatus == Unknown) && model.autoHostStatus == AutoEnabled then
-        Time.every autoHostDelay NextHost
+    , if model.autoHostStatus == AutoEnabled then
+        case model.channelStatus of
+          Unknown ->
+            Time.every autoHostDelay NextHost
+          Offline ->
+            Time.every autoHostDelay NextHost
+          Hosting _ ->
+            Sub.none
+          Live ->
+            Time.every autoHostDelay LivePoll
       else
         Sub.none
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
