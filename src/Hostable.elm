@@ -513,18 +513,24 @@ update msg model =
       let _ = Debug.log "websocket error" value in
       (model, Cmd.none)
     SocketEvent id (PortSocket.Open url) ->
-      let _ = Debug.log "websocket open" id in
+      let
+        _ = Debug.log "websocket open" id
+        possibleClose = currentConnectionId model.ircConnection
+          |> Maybe.map PortSocket.close
+          |> Maybe.withDefault Cmd.none
+      in
       Maybe.map2 (\auth login ->
         ({model | ircConnection = Connected id}, Cmd.batch
           -- order is reversed, because elm feels like it
           [ PortSocket.send id ("NICK " ++ login)
           , PortSocket.send id ("PASS oauth:" ++ auth)
+          , possibleClose
           ])
         )
         model.auth
         model.authLogin
       |> Maybe.withDefault
-        ({model | ircConnection = Connected id}, Cmd.none)
+        ({model | ircConnection = Connected id}, possibleClose)
     SocketEvent id (PortSocket.Close url) ->
       let _ = Debug.log "websocket closed" id in
       case model.ircConnection of
@@ -532,16 +538,18 @@ update msg model =
           (model, Cmd.none)
         Rejected ->
           (model, Cmd.none)
-        _ ->
-          ( { model
-            | ircConnection = Connecting twitchIrc 1000
-            , autoHostStatus = Incapable
-            , channelStatus = case model.channelStatus of
-              Hosting _ -> Offline
-              _ -> model.channelStatus
-            }
-          , Cmd.none
-          )
+        Connecting _ _ ->
+          closeIfCurrent model id id
+        Connected wasId ->
+          closeIfCurrent model wasId id
+        LoggedIn wasId _ ->
+          closeIfCurrent model wasId id
+        Joining wasId _ _ ->
+          closeIfCurrent model wasId id
+        Joined wasId _ _ ->
+          closeIfCurrent model wasId id
+        Parting wasId _ _ ->
+          closeIfCurrent model wasId id
     SocketEvent id (PortSocket.Message message) ->
       let _ = Debug.log "websocket message" message in
       case (Parser.run Chat.message message) of
@@ -702,6 +710,41 @@ hostChannel ircConnection target =
     Joined id user channel ->
       PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
     _ -> Cmd.none
+
+closeIfCurrent : Model -> PortSocket.Id -> PortSocket.Id -> (Model, Cmd Msg)
+closeIfCurrent model wasId id =
+  if id == wasId then
+    ( { model
+      | ircConnection = Connecting twitchIrc 1000
+      , autoHostStatus = Incapable
+      , channelStatus = case model.channelStatus of
+        Hosting _ -> Offline
+        _ -> model.channelStatus
+      }
+      , Cmd.none
+    )
+  else
+    (model, Cmd.none)
+
+currentConnectionId : ConnectionStatus -> Maybe PortSocket.Id
+currentConnectionId connection =
+  case connection of
+    Disconnected ->
+      Nothing
+    Rejected ->
+      Nothing
+    Connecting _ _ ->
+      Nothing
+    Connected id ->
+      Just id
+    LoggedIn id _ ->
+      Just id
+    Joining id _ _ ->
+      Just id
+    Joined id _ _ ->
+      Just id
+    Parting id _ _ ->
+      Just id
 
 toUserDict : List User -> Dict String User
 toUserDict =
