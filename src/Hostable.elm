@@ -351,6 +351,7 @@ update msg model =
       in
       if m2.channelStatus == Offline
       && m2.autoHostStatus == Pending
+      && m2.outstandingRequests == 0
       && List.isEmpty m2.pendingRequests then
         case View.sortedStreams m2 of
           top :: _ ->

@@ -1,2 +1,5 @@
+- if we lose chat connection, we can't know if we are hosting anymore
+- multiple connections on automatic reconnect
+- reshuffling while adding tags
 - disconnect from chat when not relevant?
 - streams not found? - need more context information
