@@ -70,6 +70,7 @@ type ConnectionStatus
   | Rejected
   | Connecting String Float
   | Connected PortSocket.Id
+  | LoggingIn PortSocket.Id String
   | LoggedIn PortSocket.Id String
   | Joining PortSocket.Id String String
   | Joined PortSocket.Id String String
@@ -513,24 +514,12 @@ update msg model =
       let _ = Debug.log "websocket error" value in
       (model, Cmd.none)
     SocketEvent id (PortSocket.Open url) ->
-      let
-        _ = Debug.log "websocket open" id
-        possibleClose = currentConnectionId model.ircConnection
+      let _ = Debug.log "websocket open" id in
+      ( {model | ircConnection = Connected id}
+      , currentConnectionId model.ircConnection
           |> Maybe.map PortSocket.close
           |> Maybe.withDefault Cmd.none
-      in
-      Maybe.map2 (\auth login ->
-        ({model | ircConnection = Connected id}, Cmd.batch
-          -- order is reversed, because elm feels like it
-          [ PortSocket.send id ("NICK " ++ login)
-          , PortSocket.send id ("PASS oauth:" ++ auth)
-          , possibleClose
-          ])
-        )
-        model.auth
-        model.authLogin
-      |> Maybe.withDefault
-        ({model | ircConnection = Connected id}, possibleClose)
+      )
     SocketEvent id (PortSocket.Close url) ->
       let _ = Debug.log "websocket closed" id in
       case model.ircConnection of
@@ -541,6 +530,8 @@ update msg model =
         Connecting _ _ ->
           closeIfCurrent model id id
         Connected wasId ->
+          closeIfCurrent model wasId id
+        LoggingIn wasId _ ->
           closeIfCurrent model wasId id
         LoggedIn wasId _ ->
           closeIfCurrent model wasId id
@@ -672,6 +663,20 @@ chatConnectionUpdate model =
       ( {model | ircConnection = Connecting twitchIrc 1000}
       , Cmd.none
       )
+    (Connected id, Just _) ->
+      Maybe.map2 (\auth login ->
+          ({model | ircConnection = LoggingIn id login}
+          , Cmd.batch
+            -- order is reversed, because elm feels like it
+            [ PortSocket.send id ("NICK " ++ login)
+            , PortSocket.send id ("PASS oauth:" ++ auth)
+            ]
+          )
+        )
+        model.auth
+        model.authLogin
+      |> Maybe.withDefault
+        (model, Cmd.none)
     (LoggedIn id login, Just target) ->
       ( {model | ircConnection = Joining id login target}
       , PortSocket.send id ("JOIN #" ++ target)
@@ -736,6 +741,8 @@ currentConnectionId connection =
     Connecting _ _ ->
       Nothing
     Connected id ->
+      Just id
+    LoggingIn id _ ->
       Just id
     LoggedIn id _ ->
       Just id
