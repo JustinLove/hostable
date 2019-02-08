@@ -536,6 +536,9 @@ update msg model =
           ( { model
             | ircConnection = Connecting twitchIrc 1000
             , autoHostStatus = Incapable
+            , channelStatus = case model.channelStatus of
+              Hosting _ -> Offline
+              _ -> model.channelStatus
             }
           , Cmd.none
           )
@@ -616,7 +619,13 @@ chatResponse id message line model =
             |> Maybe.withDefault (Err [])
             |> Result.withDefault "unknown"
       in
-      ({model | ircConnection = LoggedIn id user}, Cmd.none)
+      ( { model
+        | ircConnection = LoggedIn id user
+        , channelStatus = case model.channelStatus of
+          Hosting _ -> Offline
+          _ -> model.channelStatus
+        }
+      , Cmd.none)
     "PING" -> 
       --let _ = Debug.log "PONG" "" in
       (model, PortSocket.send id ("PONG :tmi.twitch.tv"))
