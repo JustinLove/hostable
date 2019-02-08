@@ -37,6 +37,7 @@ import Url.Parser.Query
 requestLimit = 100
 requestRate = 5
 autoHostDelay = 10 * 60 * 1000
+initialReconnectDelay = 1000
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
 sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
@@ -68,7 +69,8 @@ type Msg
 type ConnectionStatus
   = Disconnected
   | Rejected
-  | Connecting String Float
+  | Connect String Float
+  | Connecting PortSocket.Id Float
   | Connected PortSocket.Id
   | LoggingIn PortSocket.Id String
   | LoggedIn PortSocket.Id String
@@ -513,12 +515,21 @@ update msg model =
     SocketEvent id (PortSocket.Error value) ->
       let _ = Debug.log "websocket error" value in
       (model, Cmd.none)
-    SocketEvent id (PortSocket.Open url) ->
-      let _ = Debug.log "websocket open" id in
-      ( {model | ircConnection = Connected id}
+    SocketEvent id (PortSocket.Connecting url) ->
+      let _ = Debug.log "websocket connecting" id in
+      ( { model | ircConnection = case model.ircConnection of
+          Connect _ timeout -> Connecting id timeout
+          Connecting _ timeout -> Connecting id timeout
+          _ -> Connecting id initialReconnectDelay
+        }
       , currentConnectionId model.ircConnection
           |> Maybe.map PortSocket.close
           |> Maybe.withDefault Cmd.none
+      )
+    SocketEvent id (PortSocket.Open url) ->
+      let _ = Debug.log "websocket open" id in
+      ( {model | ircConnection = Connected id}
+      , Cmd.none
       )
     SocketEvent id (PortSocket.Close url) ->
       let _ = Debug.log "websocket closed" id in
@@ -527,8 +538,17 @@ update msg model =
           (model, Cmd.none)
         Rejected ->
           (model, Cmd.none)
-        Connecting _ _ ->
-          closeIfCurrent model id id
+        Connect _ timeout ->
+          (model, Cmd.none)
+        Connecting wasId timeout ->
+          if id == wasId then
+            ( { model
+              | ircConnection = Connect twitchIrc timeout
+              }
+              , Cmd.none
+            )
+          else
+            (model, Cmd.none)
         Connected wasId ->
           closeIfCurrent model wasId id
         LoggingIn wasId _ ->
@@ -551,9 +571,16 @@ update msg model =
           (model, Cmd.none)
     Reconnect time ->
       case Debug.log "reconnect" model.ircConnection of
-        Connecting url timeout ->
-          ( {model | ircConnection = Connecting url (timeout*2)}
+        Connect url timeout ->
+          ( {model | ircConnection = Connect url (timeout*2)}
           , PortSocket.connect url
+          )
+        Connecting id timeout ->
+          ( {model | ircConnection = Connect twitchIrc (timeout*2)}
+          , Cmd.batch
+            [ PortSocket.close id
+            , PortSocket.connect twitchIrc
+            ]
           )
         _ ->
           (model, Cmd.none)
@@ -660,7 +687,7 @@ chatConnectionUpdate : Model -> (Model, Cmd Msg)
 chatConnectionUpdate model =
   case (model.ircConnection, model.autoChannel) of
     (Disconnected, Just _) ->
-      ( {model | ircConnection = Connecting twitchIrc 1000}
+      ( {model | ircConnection = Connect twitchIrc initialReconnectDelay}
       , Cmd.none
       )
     (Connected id, Just _) ->
@@ -720,7 +747,7 @@ closeIfCurrent : Model -> PortSocket.Id -> PortSocket.Id -> (Model, Cmd Msg)
 closeIfCurrent model wasId id =
   if id == wasId then
     ( { model
-      | ircConnection = Connecting twitchIrc 1000
+      | ircConnection = Connect twitchIrc initialReconnectDelay
       , autoHostStatus = Incapable
       , channelStatus = case model.channelStatus of
         Hosting _ -> Offline
@@ -738,8 +765,10 @@ currentConnectionId connection =
       Nothing
     Rejected ->
       Nothing
-    Connecting _ _ ->
+    Connect _ _ ->
       Nothing
+    Connecting id _ ->
+      Just id
     Connected id ->
       Just id
     LoggingIn id _ ->
@@ -875,6 +904,7 @@ subscriptions model =
     , MeasureText.textSize TextSize
     , PortSocket.receive SocketEvent
     , case model.ircConnection of
+        Connect _ timeout-> Time.every timeout Reconnect
         Connecting _ timeout-> Time.every timeout Reconnect
         _ -> Sub.none
     ]

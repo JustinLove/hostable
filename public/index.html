@@ -97,6 +97,8 @@ var connect = function(address) {
   ws.id = id
   connections.push(ws)
 
+  app.ports.webSocketReceive.send({kind: "connecting", id: ws.id, url: address})
+
   ws.onerror = function(event) {
     console.log('js websocket error')
     app.ports.webSocketReceive.send({kind: "error", id: ws.id, error: event})
@@ -108,7 +110,7 @@ var connect = function(address) {
   }
 
   ws.onclose = function() {
-    console.log('js websocket closed')
+    console.log('js websocket closed', id)
     app.ports.webSocketReceive.send({kind: "close", id: ws.id, url: address})
     var index = connections.indexOf(ws)
     if (index > -1) connections.splice(index, 1)

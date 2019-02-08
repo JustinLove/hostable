@@ -42,6 +42,7 @@ type alias Id = Int
 
 type Event
   = Error Value
+  | Connecting String
   | Open String
   | Close String
   | Message String
@@ -58,6 +59,7 @@ event =
     |> andThen (\kind ->
       case kind of
         "error" -> map Error (field "error" value)
+        "connecting" -> map Connecting (field "url" string)
         "open" -> map Open (field "url" string)
         "close" -> map Close (field "url" string)
         "message" -> map Message (field "message" string)
