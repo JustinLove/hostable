@@ -38,6 +38,7 @@ requestLimit = 100
 requestRate = 5
 autoHostDelay = 10 * 60 * 1000
 initialReconnectDelay = 1000
+followExpiration = 90 * 24 * 60 * 60 * 1000
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
 sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
@@ -283,6 +284,7 @@ update msg model =
         <| fetchNextUserStreamBatch requestLimit
         <| fetchUnknownUsers streams
         <| fetchUnknownFollows streams
+        <| fetchExpiredFollows streams
         { model
         | liveStreams = List.foldl (\s liveStreams ->
             Dict.insert s.userId s liveStreams
@@ -1011,6 +1013,20 @@ fetchUnknownFollows streams model =
   in
     model
     |> appendRequests (List.map fetchFollowers missing)
+
+fetchExpiredFollows : List Stream -> Model -> Model
+fetchExpiredFollows streams model =
+  let
+    now = Time.posixToMillis model.time
+    required = Set.fromList <| List.map .userId streams
+    expired = model.followers
+      |> Dict.filter (\_ count -> (now - Time.posixToMillis count.lastUpdated) > followExpiration)
+      |> Dict.keys
+      |> Set.fromList
+    needed = Set.toList <| Set.intersect required expired
+  in
+    model
+    |> appendRequests (List.map fetchFollowers needed)
 
 fetchSelfIfAuth :  Model -> Model
 fetchSelfIfAuth model =
