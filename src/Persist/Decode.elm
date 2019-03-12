@@ -1,6 +1,6 @@
-module Persist.Decode exposing (persist, export, user, game, event)
+module Persist.Decode exposing (persist, export, user, game, event, followCount)
 
-import Persist exposing (Persist, Export, User, Game, Event)
+import Persist exposing (Persist, Export, User, Game, Event, FollowCount)
 
 import Json.Decode exposing (..)
 import Dict exposing (Dict)
@@ -8,7 +8,7 @@ import Time
 
 persist : Decoder Persist
 persist =
-  map6 Persist
+  map7 Persist
     (field "users" (list user))
     (field "games" (list game))
     (oneOf
@@ -17,6 +17,10 @@ persist =
       ])
     (oneOf
       [ (field "events" (dict (list event)))
+      , succeed Dict.empty
+      ])
+    (oneOf
+      [ (field "followers" (dict followCount))
       , succeed Dict.empty
       ])
     (maybe (field "auth" string))
@@ -60,3 +64,9 @@ event =
   map2 Event
     (field "start" (map Time.millisToPosix int))
     (field "duration" int)
+
+followCount : Decoder FollowCount
+followCount =
+  map2 FollowCount
+    (field "count" int)
+    (field "lastUpdated" (map Time.millisToPosix int))

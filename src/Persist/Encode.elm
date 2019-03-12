@@ -1,6 +1,6 @@
 module Persist.Encode exposing (persist, export, user, game)
 
-import Persist exposing (Persist, Export, User, Game, Event)
+import Persist exposing (Persist, Export, User, Game, Event, FollowCount)
 
 import Json.Encode exposing (..)
 import Dict exposing (Dict)
@@ -15,6 +15,7 @@ persist p =
         , ("games", list game p.games)
         , ("scoredTags", dict identity float p.scoredTags)
         , ("events", events p.events)
+        , ("followers", followers p.followers)
         ]
       , (case p.auth of
           Just auth -> [("auth", string auth)]
@@ -67,4 +68,18 @@ event e =
   object
     [ ("start", int <| Time.posixToMillis e.start)
     , ("duration", int e.duration)
+    ]
+
+followers : Dict String FollowCount -> Value
+followers fls =
+  fls
+    |> Dict.map (\_ f -> followCount f)
+    |> Dict.toList
+    |> object
+
+followCount : FollowCount -> Value
+followCount f =
+  object
+    [ ("count", int f.count)
+    , ("lastUpdated", int <| Time.posixToMillis f.lastUpdated)
     ]

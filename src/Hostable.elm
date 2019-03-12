@@ -2,7 +2,7 @@ module Hostable exposing (..)
 
 import LocalStorage
 import MeasureText
-import Persist exposing (Persist, Export, User, Game)
+import Persist exposing (Persist, Export, User, Game, FollowCount)
 import Persist.Encode
 import Persist.Decode
 import PortSocket
@@ -55,6 +55,7 @@ type Msg
   | ChannelStream (Result Http.Error (List Stream))
   | Games (Result Http.Error (List Helix.Game))
   | Videos String (Result Http.Error (List Helix.Video))
+  | Followers String (Result Http.Error Int)
   | NextHost Posix
   | LivePoll Posix
   | Response Msg
@@ -84,6 +85,7 @@ type alias Model =
   , scoredTags : Dict String Float
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
+  , followers : Dict String FollowCount
   , auth : Maybe String
   , authLogin : Maybe String
   , autoChannel : Maybe String
@@ -127,6 +129,7 @@ init href =
     , scoredTags = Dict.empty
     , liveStreams = Dict.empty
     , events = Dict.empty
+    , followers = Dict.empty
     , auth = auth
     , authLogin = Nothing
     , autoChannel = Nothing
@@ -279,6 +282,7 @@ update msg model =
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
         <| fetchUnknownUsers streams
+        <| fetchUnknownFollows streams
         { model
         | liveStreams = List.foldl (\s liveStreams ->
             Dict.insert s.userId s liveStreams
@@ -331,6 +335,16 @@ update msg model =
         |> persist
     Videos _ (Err error) ->
       let _ = Debug.log "video fetch error" error in
+      (model, Cmd.none)
+    Followers userId (Ok count) ->
+      { model
+      | followers = Dict.insert userId
+          ({count = count, lastUpdated = model.time})
+          model.followers
+      }
+        |> persist
+    Followers _ (Err error) ->
+      let _ = Debug.log "follower fetch error" error in
       (model, Cmd.none)
     NextHost time ->
       ( {model | autoHostStatus = Pending, time = time}
@@ -867,6 +881,7 @@ saveState model =
       (Dict.values model.games)
       model.scoredTags
       model.events
+      model.followers
       model.auth
       model.autoChannel
     |> Persist.Encode.persist
@@ -987,6 +1002,15 @@ fetchUnknownUsers streams model =
   in
     model
     |> appendRequests [fetchUnknownUsersById missing]
+
+fetchUnknownFollows : List Stream -> Model -> Model
+fetchUnknownFollows streams model =
+  let known = Set.fromList <| Dict.keys model.followers
+      required = Set.fromList <| List.map .userId streams
+      missing = Set.toList <| Set.diff required known
+  in
+    model
+    |> appendRequests (List.map fetchFollowers missing)
 
 fetchSelfIfAuth :  Model -> Model
 fetchSelfIfAuth model =
@@ -1145,6 +1169,24 @@ fetchVideos userId =
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
     }
+
+fetchFollowersUrl : String -> String
+fetchFollowersUrl userId =
+  "https://api.twitch.tv/helix/users/follows?first=1&to_id=" ++ userId
+
+fetchFollowers : String -> Cmd Msg
+fetchFollowers userId =
+  Helix.send <|
+    { clientId = TwitchId.clientId
+    , auth = Nothing
+    , decoder = followCount
+    , tagger = Response << (Followers userId)
+    , url = (fetchFollowersUrl userId)
+    }
+
+followCount : Json.Decode.Decoder Int
+followCount =
+    Json.Decode.field "total" Json.Decode.int
 
 extractHashArgument : String -> Url -> Maybe String
 extractHashArgument key location =
