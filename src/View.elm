@@ -3,7 +3,7 @@ module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import TwitchId
-import Persist exposing (User, Game)
+import Persist exposing (User, Game, FollowCount)
 import ScheduleGraph exposing (..)
 
 import Html exposing (..)
@@ -297,11 +297,16 @@ rankStream model stream =
   let
     muser = userFor model.users stream
     tags = muser |> Maybe.map .tags |> Maybe.withDefault []
-    game = gameFor model.games stream |> Maybe.andThen .score |> Maybe.withDefault 1.0
+    game = gameFor model.games stream
+      |> Maybe.andThen .score
+      |> Maybe.withDefault 1.0
+    follows = followsFor model.followers stream
+      |> Maybe.map (\count -> 2/(((toFloat count)/50)+1))
+      |> Maybe.withDefault 1.0
   in
   List.foldr
     (*)
-    (game / (toFloat (stream.viewerCount + 1)))
+    (game * follows * (1 / (toFloat (stream.viewerCount + 1))))
     (List.filterMap (\tag -> Dict.get tag model.scoredTags) tags)
 
 gamesView model =
@@ -465,6 +470,11 @@ userFor users stream =
 gameFor : Dict String Game -> Stream -> Maybe Game
 gameFor games stream =
   Dict.get stream.gameId games
+
+followsFor : Dict String FollowCount -> Stream -> Maybe Int
+followsFor follows stream =
+  Dict.get stream.userId follows
+    |> Maybe.map .count
 
 displayBoxArt : Maybe Game -> Html Msg
 displayBoxArt mgame =
