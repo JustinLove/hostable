@@ -301,12 +301,12 @@ rankStream model stream =
       |> Maybe.andThen .score
       |> Maybe.withDefault 1.0
     follows = followsFor model.followers stream
-      |> Maybe.map (\count -> 2/(((toFloat count)/50)+1))
+      |> Maybe.map (\count -> 1/(((toFloat count)/50)+1))
       |> Maybe.withDefault 1.0
   in
   List.foldr
     (*)
-    (game * follows * (1 / (toFloat (stream.viewerCount + 1))))
+    (game * follows * (1 / (((toFloat stream.viewerCount)/10) + 1)))
     (List.filterMap (\tag -> Dict.get tag model.scoredTags) tags)
 
 gamesView model =

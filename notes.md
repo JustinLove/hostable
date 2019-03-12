@@ -1,3 +1,6 @@
+- settable viewer/follower weight
+- offline management mode
+- text-only games?
 - reshuffling while adding tags
 - disconnect from chat when not relevant?
 - streams not found? - need more context information
