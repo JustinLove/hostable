@@ -35,7 +35,7 @@ import Url.Parser
 import Url.Parser.Query
 
 requestLimit = 100
-requestRate = 5
+requestRate = 2
 autoHostDelay = 10 * 60 * 1000
 initialReconnectDelay = 1000
 followExpiration = 90 * 24 * 60 * 60 * 1000
