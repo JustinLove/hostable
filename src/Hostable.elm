@@ -35,7 +35,8 @@ import Url.Parser
 import Url.Parser.Query
 
 requestLimit = 100
-requestRate = 2
+unauthenticatedRequestRate = 30
+authenticatedRequestRate = 800
 autoHostDelay = 10 * 60 * 1000
 initialReconnectDelay = 1000
 followExpiration = 90 * 24 * 60 * 60 * 1000
@@ -905,7 +906,11 @@ subscriptions model =
     [ if List.isEmpty model.pendingRequests then
         Sub.none
       else
-        Time.every (1000/requestRate) NextRequest
+        case model.auth of
+          Just _ ->
+            Time.every (1000*60*1.05/authenticatedRequestRate) NextRequest
+          Nothing ->
+            Time.every (1000*60*1.05/unauthenticatedRequestRate) NextRequest
     , if model.autoHostStatus == AutoEnabled then
         case model.channelStatus of
           Unknown ->
