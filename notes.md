@@ -1,4 +1,3 @@
-- update screenshots only on demand?
 - settable viewer/follower weight
 - reshuffling while adding tags
 - disconnect from chat when not relevant?

@@ -197,7 +197,7 @@ streamView model stream =
             [ class "preview"
             , src
               ( (imageTemplateUrl screenWidth screenHeight stream.thumbnailUrl)
-              ++ "?" ++ (String.fromInt model.previewVersion)
+              ++ "?" ++ (String.fromInt (Dict.get stream.userId model.userPreviewVersion |> Maybe.withDefault 0))
               )
             , width screenWidth
             , height screenHeight

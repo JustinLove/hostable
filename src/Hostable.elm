@@ -88,6 +88,7 @@ type alias Model =
   , liveStreams : Dict String Stream
   , events : Dict String (List Event)
   , followers : Dict String FollowCount
+  , userPreviewVersion : Dict String Int
   , auth : Maybe String
   , authLogin : Maybe String
   , autoChannel : Maybe String
@@ -98,7 +99,6 @@ type alias Model =
   , outstandingRequests : Int
   , channelStatus : ChannelStatus
   , autoHostStatus : AutoHostStatus
-  , previewVersion : Int
   , appMode : AppMode
   , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
@@ -132,6 +132,7 @@ init href =
     , liveStreams = Dict.empty
     , events = Dict.empty
     , followers = Dict.empty
+    , userPreviewVersion = Dict.empty
     , auth = auth
     , authLogin = Nothing
     , autoChannel = Nothing
@@ -142,7 +143,6 @@ init href =
     , outstandingRequests = 0
     , channelStatus = Unknown
     , autoHostStatus = Incapable
-    , previewVersion = 0
     , appMode = LiveStreams
     , selectedUser = Nothing
     , selectedComment = Nothing
@@ -403,7 +403,7 @@ update msg model =
     Focused _ ->
       (model, Cmd.none)
     UI (View.Refresh) ->
-      ( { model | previewVersion = model.previewVersion + 1}
+      ( model
         |> refreshUserStreams
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
@@ -463,6 +463,12 @@ update msg model =
             , fetchVideos model.auth userId
             ]
         , selectedUser = Just userId
+        , userPreviewVersion = Dict.update userId (\version ->
+          case version of
+            Just n -> Just (n + 1)
+            Nothing -> Just 1
+          )
+          model.userPreviewVersion
         }
       , SelectCopy.selectCopy controlId
       )
