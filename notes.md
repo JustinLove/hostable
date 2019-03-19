@@ -1,6 +1,7 @@
-- settable viewer/follower weight
-- offline management mode
 - text-only games?
+- offline management mode
+- update screenshots only on demand?
+- settable viewer/follower weight
 - reshuffling while adding tags
 - disconnect from chat when not relevant?
 - streams not found? - need more context information

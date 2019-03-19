@@ -182,6 +182,7 @@ update msg model =
           , games = state.games |> toGameDict
           , scoredTags = state.scoredTags
           , events = state.events
+          , followers = state.followers
           , auth = case state.auth of
             Just _ -> state.auth
             Nothing -> model.auth
