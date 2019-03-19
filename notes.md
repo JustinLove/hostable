@@ -1,4 +1,3 @@
-- text-only games?
 - offline management mode
 - update screenshots only on demand?
 - settable viewer/follower weight

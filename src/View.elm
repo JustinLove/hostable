@@ -314,18 +314,15 @@ gamesView model =
     |> Dict.toList
     |> List.sortBy (\(_, game) -> game.name)
     |> List.map (\(key, game) -> (key, gameView model game))
-    |> Keyed.ul [ id "games", class "games" ]
+    |> Keyed.ul [ id "games" ]
 
 --gameView : Model -> Game -> Html Msg
 gameView model game =
-  li
-    [ class "game"
-    , style "width" ((String.fromInt boxWidth) ++ "px")
-    , style "height" ((String.fromInt boxHeight) ++ "px")
-    ]
+  li []
     <|
     if model.selectedGame == Just game.id then
-      [ displayBoxArt (Just game)
+      [ text game.name
+      , text " "
       , input
         [ type_ "number"
         , id "edit-game-score"
@@ -341,10 +338,11 @@ gameView model game =
           (Json.Decode.succeed (SelectGame game.id, True))
         , href "#"
         ]
-        [ displayBoxArt (Just game)
+        [ text game.name
+        , text " "
         , case game.score of
           Just score ->
-            div [ class "score" ] [ text <| String.fromFloat score ]
+            span [ class "score" ] [ text <| String.fromFloat score ]
           Nothing ->
             text ""
         ]
