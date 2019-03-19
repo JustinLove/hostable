@@ -1,4 +1,4 @@
-- offline management mode
+- authenticated requests?
 - update screenshots only on demand?
 - settable viewer/follower weight
 - reshuffling while adding tags

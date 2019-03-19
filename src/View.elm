@@ -47,6 +47,7 @@ type Msg
 
 type AppMode
   = LiveStreams
+  | Channels
   | GameScores
   | TagScores
   | Settings
@@ -80,6 +81,7 @@ view model =
     [ headerView model
     , case model.appMode of
       LiveStreams -> liveStreamsView model
+      Channels -> channelsView model
       GameScores -> gamesView model
       TagScores -> tagsView model
       Settings -> settingsView model
@@ -106,6 +108,7 @@ headerView model =
     , nav []
       [ ul []
         [ navigationItem model.appMode LiveStreams "live-streams" "Streams"
+        , navigationItem model.appMode Channels "channels" "Channels"
         , navigationItem model.appMode GameScores "game-scores" "Games"
         , navigationItem model.appMode TagScores "tag-scores" "Tags"
         , navigationItem model.appMode Settings "settings" "Settings"
@@ -308,6 +311,44 @@ rankStream model stream =
     (*)
     (game * follows * (1 / (((toFloat stream.viewerCount)/10) + 1)))
     (List.filterMap (\tag -> Dict.get tag model.scoredTags) tags)
+
+
+channelsView model =
+  model
+    |> .users
+    |> Dict.toList
+    |> List.sortBy (\(_, user) -> String.toLower user.displayName)
+    |> List.map (\(id, user) -> (id, (channelView model user)))
+    |> Keyed.ul [ id "channels", class "channels" ]
+
+--channelView : Model -> User -> Html Msg
+channelView model user =
+  let
+    name = user.displayName
+    tags = user.tags
+    mevents = Dict.get user.id model.events
+  in
+  li [ classList
+       [ ("channel", True)
+       , ("hosted", Hosting user.id == model.channelStatus)
+       ]
+     ]
+    [ div [ class "info" ]
+      [ div [ ]
+        [ p []
+          [ button [ onClick (RemoveChannel user.id) ] [ text "X" ]
+          , text " "
+          , a [ href ("https://twitch.tv/"++name) ] [ text name ]
+          , text " "
+          , ul [ class "comments" ]
+            (tags
+              |> List.map (displayComment model.selectedComment user.id)
+              |> (::) (displayAddingComment model.addingComment user.id)
+            )
+          ]
+        ]
+      ]
+    ]
 
 gamesView model =
   model.games

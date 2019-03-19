@@ -49,6 +49,9 @@ input.channel {
   text-decoration: none;
 }
 
+.channels .comments { display: inline; }
+.channels .info p { margin: 0.2em; }
+
 .score {
   background: rgb(100, 65, 164);
   color: white;
