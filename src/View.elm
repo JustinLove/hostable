@@ -305,7 +305,7 @@ rankStream model stream =
       |> Maybe.withDefault 1.0
     follows = followsFor model.followers stream
       |> Maybe.map (\count -> 1/(((toFloat count)/50)+1))
-      |> Maybe.withDefault 1.0
+      |> Maybe.withDefault 0.5
   in
   List.foldr
     (*)
