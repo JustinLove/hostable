@@ -1,3 +1,4 @@
+- toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
 - disconnect from chat when not relevant?

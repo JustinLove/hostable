@@ -43,6 +43,7 @@ followExpiration = 90 * 24 * 60 * 60 * 1000
 twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
 sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
 sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
+audioNoticeLength = 3 * 1000
 
 type Msg
   = Loaded (Maybe Persist)
@@ -60,6 +61,8 @@ type Msg
   | Followers String (Result Http.Error Int)
   | NextHost Posix
   | LivePoll Posix
+  | AudioStart Posix
+  | AudioEnd Posix
   | Response Msg
   | NextRequest Posix
   | CurrentZone Zone
@@ -106,6 +109,7 @@ type alias Model =
   , selectedGame : Maybe String
   , selectedTag : Maybe String
   , exportingAuth : Maybe String
+  , audioNotice : Maybe Posix
   , location : Url
   , time : Posix
   , zone : Zone
@@ -150,12 +154,14 @@ init href =
     , selectedGame = Nothing
     , selectedTag = Nothing
     , exportingAuth = Nothing
+    , audioNotice = Nothing
     , location = url
     , time = Time.millisToPosix 0
     , zone = Time.utc
     , labelWidths = Dict.empty
     }
     --|> update (SocketEvent 0 (PortSocket.Message sampleHost)) |> Tuple.first
+    --|> update (AudioStart (Time.millisToPosix 0)) |> Tuple.first
   , Cmd.batch 
     [ Task.perform CurrentZone Time.here
     , ScheduleGraph.allDays
@@ -387,6 +393,10 @@ update msg model =
             ({m2 | autoHostStatus = AutoEnabled}, cmd2)
       else
         (m2, cmd2)
+    AudioStart time ->
+      ({model | audioNotice = Just time}, Cmd.none)
+    AudioEnd _ ->
+      ({model | audioNotice = Nothing}, Cmd.none)
     NextRequest time ->
       case model.pendingRequests of
         next :: rest ->
@@ -633,7 +643,7 @@ chatResponse id message line model =
                 |> appendRequests [model.autoChannel
                   |> Maybe.map (fetchChannelStream model.auth)
                   |> Maybe.withDefault Cmd.none]
-              , Cmd.none
+              , (Time.now |> Task.perform AudioStart)
               )
             channel::_ ->
               (model |> appendRequests [fetchHostingUser model.auth channel], Cmd.none)
@@ -936,6 +946,9 @@ subscriptions model =
         Connect _ timeout-> Time.every timeout Reconnect
         Connecting _ timeout-> Time.every timeout Reconnect
         _ -> Sub.none
+    , model.audioNotice
+      |> Maybe.map (\_ -> Time.every audioNoticeLength AudioEnd)
+      |> Maybe.withDefault Sub.none
     ]
 
 importUser : Helix.User -> User

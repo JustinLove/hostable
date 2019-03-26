@@ -25,3 +25,4 @@ The generated page is styled after the twitch following list. A host command is 
 ## Credits
 
 Icons: [IcoMoon - Free](https://icomoon.io/#icons-icomoon) ([CC BY 4.0](http://creativecommons.org/licenses/by/4.0/))
+Alert sound: [Short drone](https://freesound.org/people/FK_Prod/sounds/190039/) by `FK_Prod` (volume reduced)
