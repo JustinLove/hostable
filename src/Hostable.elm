@@ -8,8 +8,6 @@ import Persist.Decode
 import PortSocket
 import Twitch.Helix.Decode as Helix exposing (Stream)
 import Twitch.Helix as Helix
-import Twitch.Kraken.Decode as Kraken
-import Twitch.Kraken as Kraken
 import Twitch.Tmi.Chat as Chat
 --import Twitch.Tmi.ChatSamples as Chat
 import TwitchId
@@ -297,6 +295,9 @@ update msg model =
         | liveStreams = List.foldl (\s liveStreams ->
             Dict.insert s.userId s liveStreams
           ) model.liveStreams streams
+        , users = List.foldl (\s users ->
+            Dict.update s.userId (Maybe.map (\user -> {user | displayName = s.userName})) users
+          ) model.users streams
         }
       , Cmd.none)
     Streams (Err error) ->
