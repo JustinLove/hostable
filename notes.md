@@ -1,3 +1,4 @@
+- unknown tag "badge-info" "subscriber/4"
 - toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
