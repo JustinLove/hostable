@@ -221,7 +221,7 @@ streamView model stream =
             , id ("host-" ++ name)
             , Html.Events.onClick (HostClicked stream.userId ("host-" ++ name))
             , readonly True
-            , value ("/host " ++ name)
+            , value name
             ] []
           , case model.autoHostStatus of
             Incapable ->
