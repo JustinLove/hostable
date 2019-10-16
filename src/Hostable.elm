@@ -487,6 +487,10 @@ update msg model =
       ( model
       , hostChannel model.ircConnection target
       )
+    UI (View.RaidChannel target) ->
+      ( model
+      , raidChannel model.ircConnection target
+      )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->
@@ -776,6 +780,13 @@ hostChannel ircConnection target =
   case ircConnection of
     Joined id user channel ->
       PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
+    _ -> Cmd.none
+
+raidChannel : ConnectionStatus -> String -> Cmd Msg
+raidChannel ircConnection target =
+  case ircConnection of
+    Joined id user channel ->
+      PortSocket.send id ("PRIVMSG " ++ channel ++ " :/raid " ++ target)
     _ -> Cmd.none
 
 closeIfCurrent : Model -> PortSocket.Id -> PortSocket.Id -> (Model, Cmd Msg)

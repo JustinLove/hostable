@@ -33,6 +33,7 @@ type Msg
   | RemoveChannel String
   | HostClicked String String
   | HostChannel String
+  | RaidChannel String
   | SelectComment String String
   | RemoveComment String String
   | AddComment String
@@ -227,9 +228,15 @@ streamView model stream =
             Incapable ->
               text ""
             _ ->
-              button
-                [ Html.Events.onClick (HostChannel name)
-                ] [ text "host" ]
+              case model.channelStatus of
+                Live ->
+                  button
+                    [ Html.Events.onClick (RaidChannel name)
+                    ] [ text "raid" ]
+                _ ->
+                  button
+                    [ Html.Events.onClick (HostChannel name)
+                    ] [ text "host" ]
           , if model.selectedUser == Just stream.userId then
               button [ onClick (RemoveChannel stream.userId) ] [ text "X" ]
             else
