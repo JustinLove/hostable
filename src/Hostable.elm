@@ -415,7 +415,7 @@ update msg model =
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
     UI (View.Logout) ->
-      { model | auth = Nothing, authLogin = Nothing }
+      { model | auth = Nothing, authLogin = Nothing, autoChannel = Nothing }
         |> persist
     UI (View.Export) ->
       ( model

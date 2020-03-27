@@ -1,5 +1,4 @@
-- how is auto host channel set?
-- don't login to chat without auth
+- no way to clear auto host channel
 - login prompt
 - can't delete from channel list
 - toggle for host off alarm
