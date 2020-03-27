@@ -201,7 +201,7 @@ update msg model =
       )
       |> fetchNextUserBatch requestLimit
       |> fetchNextUserStreamBatch requestLimit
-      |> fetchSelfIfAuth
+      |> appendUnauthenticatedRequests [ fetchSelf ]
       |> persist -- save auth if captured from url
     Imported (Ok imported) ->
       { model
@@ -220,9 +220,9 @@ update msg model =
       ( { model
         | authLogin = Just user.login
         }
-        |> appendRequests (case model.autoChannel of
-          Just _ -> []
-          Nothing -> [ fetchChannel model.auth user.login ]
+        |> appendUnauthenticatedRequests (case model.autoChannel of
+          Nothing -> [ fetchChannel user.login ]
+          Just autoChannel -> [ fetchChannelStream autoChannel ]
         )
       , Cmd.none
       )
@@ -237,7 +237,7 @@ update msg model =
       | autoChannel = Just user.login
       , channelStatus = Unknown
       }
-      |> appendRequests [ fetchChannelStream model.auth user.login ]
+      |> appendUnauthenticatedRequests [ fetchChannelStream user.login ]
       |> persist
     Channel (Ok _) ->
       let _ = Debug.log "channel did not find user" "" in
@@ -359,18 +359,14 @@ update msg model =
       (model, Cmd.none)
     NextHost time ->
       ( {model | autoHostStatus = Pending, time = time}
-        |> appendRequests [model.autoChannel
-          |> Maybe.map (fetchChannelStream model.auth)
-          |> Maybe.withDefault Cmd.none]
+        |> pollAutoChannel
         |> refreshUserStreams
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none
       )
     LivePoll time ->
       ( {model | time = time}
-        |> appendRequests [model.autoChannel
-          |> Maybe.map (fetchChannelStream model.auth)
-          |> Maybe.withDefault Cmd.none]
+        |> pollAutoChannel
       , Cmd.none
       )
     Response subMsg ->
@@ -443,7 +439,7 @@ update msg model =
       (model, SelectCopy.selectCopy controlId)
     UI (View.ImportAuth token) ->
       { model | auth = Just token, authLogin = Nothing }
-        |> fetchSelfIfAuth
+        |> appendRequests [ fetchSelf token ]
         |> persist
     UI (View.AddChannel name) ->
       let lower = String.toLower name in
@@ -468,12 +464,7 @@ update msg model =
       } |> persist
     UI (View.HostClicked userId controlId) ->
       ( { model
-        | pendingRequests =
-          List.append model.pendingRequests
-            [ fetchUsersById model.auth [userId]
-            , fetchVideos model.auth userId
-            ]
-        , selectedUser = Just userId
+        | selectedUser = Just userId
         , userPreviewVersion = Dict.update userId (\version ->
           case version of
             Just n -> Just (n + 1)
@@ -481,6 +472,10 @@ update msg model =
           )
           model.userPreviewVersion
         }
+          |> appendUnauthenticatedRequests
+              [ fetchUsersById [userId]
+              , fetchVideos userId
+              ]
       , SelectCopy.selectCopy controlId
       )
     UI (View.HostChannel target) ->
@@ -548,7 +543,7 @@ update msg model =
     UI (View.HostOnChannel name) ->
       let lower = String.toLower name in
       ( model
-        |> appendRequests [ fetchChannel model.auth lower ]
+        |> appendUnauthenticatedRequests [ fetchChannel lower ]
       , Cmd.none
       )
     SocketEvent id (PortSocket.Error value) ->
@@ -645,13 +640,12 @@ chatResponse id message line model =
               ( { model
                 | channelStatus = Unknown
                 }
-                |> appendRequests [model.autoChannel
-                  |> Maybe.map (fetchChannelStream model.auth)
-                  |> Maybe.withDefault Cmd.none]
+                |> pollAutoChannel
               , (Time.now |> Task.perform AudioStart)
               )
             channel::_ ->
-              (model |> appendRequests [fetchHostingUser model.auth channel], Cmd.none)
+              (model |> appendUnauthenticatedRequests [fetchHostingUser channel]
+              , Cmd.none)
             _ -> (model, Cmd.none)
         _ -> (model, Cmd.none)
     "JOIN" ->
@@ -1007,13 +1001,24 @@ fetchNextUserBatch : Int -> Model -> Model
 fetchNextUserBatch batch model =
   { model
   | pendingUsers = List.drop batch model.pendingUsers
-  } |> appendRequests [fetchUsersByLogin model.auth <| List.take batch model.pendingUsers]
+  } |> appendUnauthenticatedRequests
+    [fetchUsersByLogin <| List.take batch model.pendingUsers]
 
 fetchNextUserStreamBatch : Int -> Model -> Model
 fetchNextUserStreamBatch batch model =
   { model
   | pendingUserStreams = List.drop batch model.pendingUserStreams
-  } |> appendRequests [fetchStreamsByUserIds model.auth <| List.take batch model.pendingUserStreams]
+  } |> appendUnauthenticatedRequests
+      [fetchStreamsByUserIds <| List.take batch model.pendingUserStreams]
+
+pollAutoChannel : Model -> Model
+pollAutoChannel model =
+  let _ = Debug.log "poll" model.autoChannel in
+  model
+    |> appendUnauthenticatedRequests (case model.autoChannel of
+      Just autoChannel -> [ fetchChannelStream autoChannel ]
+      _ -> []
+    )
 
 refreshUserStreams : Model -> Model
 refreshUserStreams model =
@@ -1031,7 +1036,8 @@ fetchNextGameBatch batch model =
       missing = Set.toList <| Set.diff required known
   in
     model
-    |> appendRequests [fetchGames model.auth <| List.take batch missing]
+    |> appendUnauthenticatedRequests
+      [fetchGames <| List.take batch missing]
 
 fetchUnknownUsers : List Stream -> Model -> Model
 fetchUnknownUsers streams model =
@@ -1040,7 +1046,8 @@ fetchUnknownUsers streams model =
       missing = Set.toList <| Set.diff required known
   in
     model
-    |> appendRequests [fetchUnknownUsersById model.auth missing]
+    |> appendUnauthenticatedRequests
+      [fetchUnknownUsersById missing]
 
 fetchUnknownFollows : List Stream -> Model -> Model
 fetchUnknownFollows streams model =
@@ -1049,7 +1056,8 @@ fetchUnknownFollows streams model =
       missing = Set.toList <| Set.diff required known
   in
     model
-    |> appendRequests (List.map (fetchFollowers model.auth) missing)
+    |> appendUnauthenticatedRequests
+      (List.map fetchFollowers missing)
 
 fetchExpiredFollows : List Stream -> Model -> Model
 fetchExpiredFollows streams model =
@@ -1063,45 +1071,47 @@ fetchExpiredFollows streams model =
     needed = Set.toList <| Set.intersect required expired
   in
     model
-    |> appendRequests (List.map (fetchFollowers model.auth) needed)
-
-fetchSelfIfAuth :  Model -> Model
-fetchSelfIfAuth model =
-  case model.auth of
-    Just _ ->
-      model |> appendRequests [ fetchSelf model.auth ]
-    Nothing ->
-      model
+    |> appendUnauthenticatedRequests
+      (List.map fetchFollowers needed)
 
 appendRequests : List (Cmd Msg) -> Model -> Model
 appendRequests cmds model = 
   { model
-  | pendingRequests = List.append model.pendingRequests
-    <| List.filter (\c -> c /= Cmd.none) cmds
+  | pendingRequests = cmds
+    |> List.filter (\c -> c /= Cmd.none)
+    |> List.append model.pendingRequests
   }
+
+appendUnauthenticatedRequests : List (String -> Cmd Msg) -> Model -> Model
+appendUnauthenticatedRequests reqs model = 
+  let _ = Debug.log "reqs" reqs in
+  model |> appendRequests (case model.auth of
+      Just auth -> List.map (\r -> r auth) reqs
+      Nothing -> []
+    )
 
 fetchUsersByLoginUrl : List String -> String
 fetchUsersByLoginUrl users =
   "https://api.twitch.tv/helix/users?login=" ++ (String.join "&login=" users)
 
-fetchUsersByLogin : Maybe String -> List String -> Cmd Msg
-fetchUsersByLogin auth users =
+fetchUsersByLogin : List String -> String -> Cmd Msg
+fetchUsersByLogin users auth =
   if List.isEmpty users then
     Cmd.none
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = auth
+      , auth = Just auth
       , decoder = Helix.users
       , tagger = Response << Users
       , url = (fetchUsersByLoginUrl users)
       }
 
-fetchChannel : Maybe String -> String -> Cmd Msg
-fetchChannel auth user =
+fetchChannel : String -> String -> Cmd Msg
+fetchChannel user auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = Helix.users
     , tagger = Response << Channel
     , url = (fetchUsersByLoginUrl [user])
@@ -1111,37 +1121,37 @@ fetchUsersByIdUrl : List String -> String
 fetchUsersByIdUrl ids =
   "https://api.twitch.tv/helix/users?id=" ++ (String.join "&id=" ids)
 
-fetchUsersById : Maybe String -> List String -> Cmd Msg
-fetchUsersById auth ids =
+fetchUsersById : List String -> String -> Cmd Msg
+fetchUsersById ids auth =
   if List.isEmpty ids then
     Cmd.none
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = auth
+      , auth = Just auth
       , decoder = Helix.users
       , tagger = Response << UserUpdate
       , url = (fetchUsersByIdUrl ids)
       }
 
-fetchUnknownUsersById : Maybe String -> List String -> Cmd Msg
-fetchUnknownUsersById auth ids =
+fetchUnknownUsersById : List String -> String -> Cmd Msg
+fetchUnknownUsersById ids auth =
   if List.isEmpty ids then
     Cmd.none
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = auth
+      , auth = Just auth
       , decoder = Helix.users
       , tagger = Response << UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
 
-fetchHostingUser : Maybe String -> String -> Cmd Msg
-fetchHostingUser auth login =
+fetchHostingUser : String -> String -> Cmd Msg
+fetchHostingUser login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = Helix.users
     , tagger = Response << HostingUser
     , url = (fetchUsersByLoginUrl [login])
@@ -1151,11 +1161,11 @@ fetchSelfUrl : String
 fetchSelfUrl =
   "https://api.twitch.tv/helix/users"
 
-fetchSelf : Maybe String -> Cmd Msg
+fetchSelf : String -> Cmd Msg
 fetchSelf auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = Helix.users
     , tagger = Response << Self
     , url = fetchSelfUrl
@@ -1165,14 +1175,14 @@ fetchStreamsByUserIdsUrl : List String -> String
 fetchStreamsByUserIdsUrl userIds =
   "https://api.twitch.tv/helix/streams?type=live&first=100&user_id=" ++ (String.join "&user_id=" userIds)
 
-fetchStreamsByUserIds : Maybe String -> List String -> Cmd Msg
-fetchStreamsByUserIds auth userIds =
+fetchStreamsByUserIds : List String -> String -> Cmd Msg
+fetchStreamsByUserIds userIds auth =
   if List.isEmpty userIds then
     Cmd.none
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = auth
+      , auth = Just auth
       , decoder = Helix.streams
       , tagger = Response << Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
@@ -1182,11 +1192,11 @@ fetchChannelStreamUrl : String -> String
 fetchChannelStreamUrl login =
   "https://api.twitch.tv/helix/streams?user_login=" ++ login
 
-fetchChannelStream : Maybe String -> String -> Cmd Msg
-fetchChannelStream auth login =
+fetchChannelStream : String -> String -> Cmd Msg
+fetchChannelStream login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = Helix.streams
     , tagger = Response << ChannelStream
     , url = (fetchChannelStreamUrl login)
@@ -1196,14 +1206,14 @@ fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
   "https://api.twitch.tv/helix/games?id=" ++ (String.join "&id=" gameIds)
 
-fetchGames : Maybe String -> List String -> Cmd Msg
-fetchGames auth gameIds =
+fetchGames : List String -> String -> Cmd Msg
+fetchGames gameIds auth =
   if List.isEmpty gameIds then
     Cmd.none
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = auth
+      , auth = Just auth
       , decoder = Helix.games
       , tagger = Response << Games
       , url = (fetchGamesUrl gameIds)
@@ -1213,11 +1223,11 @@ fetchVideosUrl : String -> String
 fetchVideosUrl userId =
   "https://api.twitch.tv/helix/videos?first=100&type=archive&user_id=" ++ userId
 
-fetchVideos : Maybe String -> String -> Cmd Msg
-fetchVideos auth userId =
+fetchVideos : String -> String -> Cmd Msg
+fetchVideos userId auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = Helix.videos
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
@@ -1227,11 +1237,11 @@ fetchFollowersUrl : String -> String
 fetchFollowersUrl userId =
   "https://api.twitch.tv/helix/users/follows?first=1&to_id=" ++ userId
 
-fetchFollowers : Maybe String -> String -> Cmd Msg
-fetchFollowers auth userId =
+fetchFollowers : String -> String -> Cmd Msg
+fetchFollowers userId auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = auth
+    , auth = Just auth
     , decoder = followCount
     , tagger = Response << (Followers userId)
     , url = (fetchFollowersUrl userId)

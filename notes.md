@@ -1,3 +1,4 @@
+- can't delete from channel list
 - toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
