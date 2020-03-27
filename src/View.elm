@@ -92,7 +92,7 @@ view model =
 headerView model =
   header []
     [ div [ class "refresh" ] 
-      [ button [onClick Refresh] [ text "Refresh" ]
+      [ button [onClick Refresh, authEnabled model ] [ text "Refresh" ]
       , text " "
       , autoHostEnabledView model
       ]
@@ -123,6 +123,7 @@ headerView model =
         , name "channelname"
         , value ""
         , on "change" <| targetValue Json.Decode.string AddChannel
+        , authEnabled model
         ] []
       ]
     , button [ onClick Export ] [ text "export" ]
@@ -620,3 +621,7 @@ decodeFloat =
       Just n -> Json.Decode.succeed n
       Nothing -> Json.Decode.fail s
     )
+
+authEnabled : {m|auth : Maybe String} -> Html.Attribute msg
+authEnabled {auth} =
+  disabled (auth == Nothing)

@@ -1,3 +1,6 @@
+- how is auto host channel set?
+- don't login to chat without auth
+- login prompt
 - can't delete from channel list
 - toggle for host off alarm
 - settable viewer/follower weight
