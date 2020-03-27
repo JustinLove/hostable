@@ -1084,7 +1084,6 @@ appendRequests cmds model =
 
 appendUnauthenticatedRequests : List (String -> Cmd Msg) -> Model -> Model
 appendUnauthenticatedRequests reqs model = 
-  let _ = Debug.log "reqs" reqs in
   model |> appendRequests (case model.auth of
       Just auth -> List.map (\r -> r auth) reqs
       Nothing -> []
