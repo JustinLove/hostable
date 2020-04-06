@@ -512,7 +512,7 @@ settingsView model =
               text ""
           ]
     , if model.auth == Nothing then
-        text "incapable"
+        text ""
       else
         li [ class "add-channel" ]
           [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
