@@ -46,17 +46,18 @@ audioNoticeLength = 3 * 1000
 type Msg
   = Loaded (Maybe Persist)
   | Imported (Result Json.Decode.Error Export)
-  | Self (Result Http.Error (List Helix.User))
-  | Channel (Result Http.Error (List Helix.User))
-  | Users (Result Http.Error (List Helix.User))
-  | UserUpdate (Result Http.Error (List Helix.User))
-  | UnknownUsers (Result Http.Error (List Helix.User))
-  | HostingUser (Result Http.Error (List Helix.User))
-  | Streams (Result Http.Error (List Stream))
-  | ChannelStream (Result Http.Error (List Stream))
-  | Games (Result Http.Error (List Helix.Game))
-  | Videos String (Result Http.Error (List Helix.Video))
-  | Followers String (Result Http.Error Int)
+  | HttpError String Http.Error
+  | Self (List Helix.User)
+  | Channel (List Helix.User)
+  | Users (List Helix.User)
+  | UserUpdate (List Helix.User)
+  | UnknownUsers (List Helix.User)
+  | HostingUser (List Helix.User)
+  | Streams (List Stream)
+  | ChannelStream (List Stream)
+  | Games (List Helix.Game)
+  | Videos String (List Helix.Video)
+  | Followers String Int
   | NextHost Posix
   | LivePoll Posix
   | AudioStart Posix
@@ -169,6 +170,39 @@ init href =
     ]
   )
 
+logout : Model -> Model
+logout model =
+  { users = model.users
+  , games = model.games
+  , scoredTags = model.scoredTags
+  , liveStreams = model.liveStreams
+  , events = model.events
+  , followers = model.followers
+  , userPreviewVersion = model.userPreviewVersion
+  , auth = Nothing
+  , authLogin = Nothing
+  , autoChannel = Nothing
+  , ircConnection = Disconnected
+  , pendingUsers = []
+  , pendingUserStreams = []
+  , pendingRequests = []
+  , outstandingRequests = model.outstandingRequests
+  , channelStatus = Unknown
+  , autoHostStatus = Incapable
+  , appMode = model.appMode
+  , selectedUser = Nothing
+  , selectedComment = Nothing
+  , addingComment = Nothing
+  , selectedGame = Nothing
+  , selectedTag = Nothing
+  , exportingAuth = Nothing
+  , audioNotice = Nothing
+  , location = model.location
+  , time = model.time
+  , zone = model.zone
+  , labelWidths = model.labelWidths
+  }
+
 updateWithChecks msg model =
   let
     (m2,cmd2) = update msg model
@@ -215,8 +249,16 @@ update msg model =
       |> fetchNextUserStreamBatch requestLimit
       |> persist
     Imported (Err err) ->
+      let _ = Debug.log "import error: " err in
       (model, Cmd.none)
-    Self (Ok (user::_)) ->
+    HttpError source (Http.BadStatus 401) ->
+      let _ = Debug.log ("fetch auth error: " ++ source) "" in
+      logout model
+        |> persist
+    HttpError source (error) ->
+      let _ = Debug.log ("fetch error: " ++ source) error in
+      (model, Cmd.none)
+    Self (user::_) ->
       ( { model
         | authLogin = Just user.login
         }
@@ -226,26 +268,20 @@ update msg model =
         )
       , Cmd.none
       )
-    Self (Ok _) ->
+    Self _ ->
       let _ = Debug.log "self did not find user" "" in
       (model, Cmd.none)
-    Self (Err error) ->
-      let _ = Debug.log "self fetch error" error in
-      (model, Cmd.none)
-    Channel (Ok (user::_)) ->
+    Channel (user::_) ->
       { model
       | autoChannel = Just user.login
       , channelStatus = Unknown
       }
       |> appendUnauthenticatedRequests [ fetchChannelStream user.login ]
       |> persist
-    Channel (Ok _) ->
+    Channel _ ->
       let _ = Debug.log "channel did not find user" "" in
       (model, Cmd.none)
-    Channel (Err error) ->
-      let _=  Debug.log "channel fetch error" error in
-      (model, Cmd.none)
-    Users (Ok users) ->
+    Users users ->
       { model
       | users = addUsers (List.map (importUser>>persistUser) users) model.users
       , pendingUserStreams = List.append model.pendingUserStreams
@@ -254,38 +290,26 @@ update msg model =
       |> fetchNextUserBatch requestLimit
       |> fetchNextUserStreamBatch requestLimit
       |> persist
-    Users (Err error) ->
-      let _ = Debug.log "user fetch error" error in
-      (model, Cmd.none)
-    UserUpdate (Ok users) ->
+    UserUpdate users ->
       { model
       | users = addUsers (List.map (importUser>>persistUser) users) model.users
       }
       |> persist
-    UserUpdate (Err error) ->
-      let _ = Debug.log "user fetch error" error in
-      (model, Cmd.none)
-    UnknownUsers (Ok users) ->
+    UnknownUsers users ->
       ( { model
         | users = addUsers (List.map importUser users) model.users
         }
       , Cmd.none)
-    UnknownUsers (Err error) ->
-      let _ = Debug.log "unknown user fetch error" error in
-      (model, Cmd.none)
-    HostingUser (Ok (user::_)) ->
+    HostingUser (user::_) ->
       ( { model
         | channelStatus = Hosting user.id
         }
       , Cmd.none
       )
-    HostingUser (Ok _) ->
+    HostingUser _ ->
       let _ = Debug.log "hosting did not find user" "" in
       (model, Cmd.none)
-    HostingUser (Err error) ->
-      let _ = Debug.log "hosting fetch error" error in
-      (model, Cmd.none)
-    Streams (Ok streams) ->
+    Streams streams ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
         <| fetchUnknownUsers streams
@@ -300,10 +324,7 @@ update msg model =
           ) model.users streams
         }
       , Cmd.none)
-    Streams (Err error) ->
-      let _= Debug.log "stream fetch error" error in
-      (model, Cmd.none)
-    ChannelStream (Ok (stream::_)) ->
+    ChannelStream (stream::_) ->
       ( { model
         | channelStatus = Live
         , autoHostStatus = case model.autoHostStatus of
@@ -311,7 +332,7 @@ update msg model =
           _ -> model.autoHostStatus
         }
       , Cmd.none)
-    ChannelStream (Ok []) ->
+    ChannelStream [] ->
       ( { model | channelStatus = case model.channelStatus of
           Unknown -> Offline
           Offline -> Offline
@@ -319,23 +340,14 @@ update msg model =
           Live -> Offline
         }
       , Cmd.none)
-    ChannelStream (Err error) ->
-      let _= Debug.log "channel stream fetch error" error in
-      ( { model
-        | channelStatus = Unknown
-        }
-      , Cmd.none)
-    Games (Ok news) ->
+    Games news ->
       { model
       | games = List.foldl (\g games ->
           Dict.insert g.id (importGame g) games
         ) model.games news
       }
       |> persist
-    Games (Err error) ->
-      let _ = Debug.log "game fetch error" error in
-      (model, Cmd.none)
-    Videos userId (Ok videos) ->
+    Videos userId videos ->
       { model
       | events = Dict.insert userId
         (videos
@@ -344,19 +356,13 @@ update msg model =
         ) model.events
       }
         |> persist
-    Videos _ (Err error) ->
-      let _ = Debug.log "video fetch error" error in
-      (model, Cmd.none)
-    Followers userId (Ok count) ->
+    Followers userId count ->
       { model
       | followers = Dict.insert userId
           ({count = count, lastUpdated = model.time})
           model.followers
       }
         |> persist
-    Followers _ (Err error) ->
-      let _ = Debug.log "follower fetch error" error in
-      (model, Cmd.none)
     NextHost time ->
       ( {model | autoHostStatus = Pending, time = time}
         |> pollAutoChannel
@@ -415,7 +421,7 @@ update msg model =
         |> fetchNextUserStreamBatch requestLimit
       , Cmd.none)
     UI (View.Logout) ->
-      { model | auth = Nothing, authLogin = Nothing, autoChannel = Nothing }
+      logout model
         |> persist
     UI (View.Export) ->
       ( model
@@ -1089,6 +1095,12 @@ appendUnauthenticatedRequests reqs model =
       Nothing -> []
     )
 
+httpResponse : String -> (a -> Msg)-> Result Http.Error a -> Msg
+httpResponse source success result =
+  case result of
+    Ok value -> success value |> Response
+    Err err -> HttpError source err |> Response
+
 fetchUsersByLoginUrl : List String -> String
 fetchUsersByLoginUrl users =
   "https://api.twitch.tv/helix/users?login=" ++ (String.join "&login=" users)
@@ -1102,7 +1114,7 @@ fetchUsersByLogin users auth =
       { clientId = TwitchId.clientId
       , auth = auth
       , decoder = Helix.users
-      , tagger = Response << Users
+      , tagger = httpResponse "Users" Users
       , url = (fetchUsersByLoginUrl users)
       }
 
@@ -1112,7 +1124,7 @@ fetchChannel user auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = Helix.users
-    , tagger = Response << Channel
+    , tagger = httpResponse "Channel" Channel
     , url = (fetchUsersByLoginUrl [user])
     }
 
@@ -1129,7 +1141,7 @@ fetchUsersById ids auth =
       { clientId = TwitchId.clientId
       , auth = auth
       , decoder = Helix.users
-      , tagger = Response << UserUpdate
+      , tagger = httpResponse "UserUpdate" UserUpdate
       , url = (fetchUsersByIdUrl ids)
       }
 
@@ -1142,7 +1154,7 @@ fetchUnknownUsersById ids auth =
       { clientId = TwitchId.clientId
       , auth = auth
       , decoder = Helix.users
-      , tagger = Response << UnknownUsers
+      , tagger = httpResponse "UnknownUsers" UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
 
@@ -1152,7 +1164,7 @@ fetchHostingUser login auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = Helix.users
-    , tagger = Response << HostingUser
+    , tagger = httpResponse "HostingUser" HostingUser
     , url = (fetchUsersByLoginUrl [login])
     }
 
@@ -1166,7 +1178,7 @@ fetchSelf auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = Helix.users
-    , tagger = Response << Self
+    , tagger = httpResponse "Self" Self
     , url = fetchSelfUrl
     }
 
@@ -1183,7 +1195,7 @@ fetchStreamsByUserIds userIds auth =
       { clientId = TwitchId.clientId
       , auth = auth
       , decoder = Helix.streams
-      , tagger = Response << Streams
+      , tagger = httpResponse "Streams" Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
       }
 
@@ -1197,7 +1209,7 @@ fetchChannelStream login auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = Helix.streams
-    , tagger = Response << ChannelStream
+    , tagger = httpResponse "ChannelStream" ChannelStream
     , url = (fetchChannelStreamUrl login)
     }
 
@@ -1214,7 +1226,7 @@ fetchGames gameIds auth =
       { clientId = TwitchId.clientId
       , auth = auth
       , decoder = Helix.games
-      , tagger = Response << Games
+      , tagger = httpResponse "Games" Games
       , url = (fetchGamesUrl gameIds)
       }
 
@@ -1228,7 +1240,7 @@ fetchVideos userId auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = Helix.videos
-    , tagger = Response << (Videos userId)
+    , tagger = httpResponse "Videos" (Videos userId)
     , url = (fetchVideosUrl userId)
     }
 
@@ -1242,7 +1254,7 @@ fetchFollowers userId auth =
     { clientId = TwitchId.clientId
     , auth = auth
     , decoder = followCount
-    , tagger = Response << (Followers userId)
+    , tagger = httpResponse "Followers" (Followers userId)
     , url = (fetchFollowersUrl userId)
     }
 
