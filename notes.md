@@ -1,4 +1,3 @@
-- no chat if no auth
 - toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
