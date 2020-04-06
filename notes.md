@@ -1,6 +1,5 @@
 - login prompt
 - better feedback on some disabled controls
-- can't delete from channel list
 - toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags

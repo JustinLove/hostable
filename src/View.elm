@@ -341,6 +341,7 @@ rankStream model stream =
 channelsView model =
   model
     |> .users
+    |> Dict.filter (\_ {persisted} -> persisted == True)
     |> Dict.toList
     |> List.sortBy (\(_, user) -> String.toLower user.displayName)
     |> List.map (\(id, user) -> (id, (channelView model user)))
