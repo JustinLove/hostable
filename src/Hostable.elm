@@ -1100,7 +1100,7 @@ fetchUsersByLogin users auth =
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = Just auth
+      , auth = auth
       , decoder = Helix.users
       , tagger = Response << Users
       , url = (fetchUsersByLoginUrl users)
@@ -1110,7 +1110,7 @@ fetchChannel : String -> String -> Cmd Msg
 fetchChannel user auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = Helix.users
     , tagger = Response << Channel
     , url = (fetchUsersByLoginUrl [user])
@@ -1127,7 +1127,7 @@ fetchUsersById ids auth =
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = Just auth
+      , auth = auth
       , decoder = Helix.users
       , tagger = Response << UserUpdate
       , url = (fetchUsersByIdUrl ids)
@@ -1140,7 +1140,7 @@ fetchUnknownUsersById ids auth =
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = Just auth
+      , auth = auth
       , decoder = Helix.users
       , tagger = Response << UnknownUsers
       , url = (fetchUsersByIdUrl ids)
@@ -1150,7 +1150,7 @@ fetchHostingUser : String -> String -> Cmd Msg
 fetchHostingUser login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = Helix.users
     , tagger = Response << HostingUser
     , url = (fetchUsersByLoginUrl [login])
@@ -1164,7 +1164,7 @@ fetchSelf : String -> Cmd Msg
 fetchSelf auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = Helix.users
     , tagger = Response << Self
     , url = fetchSelfUrl
@@ -1181,7 +1181,7 @@ fetchStreamsByUserIds userIds auth =
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = Just auth
+      , auth = auth
       , decoder = Helix.streams
       , tagger = Response << Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
@@ -1195,7 +1195,7 @@ fetchChannelStream : String -> String -> Cmd Msg
 fetchChannelStream login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = Helix.streams
     , tagger = Response << ChannelStream
     , url = (fetchChannelStreamUrl login)
@@ -1212,7 +1212,7 @@ fetchGames gameIds auth =
   else
     Helix.send <|
       { clientId = TwitchId.clientId
-      , auth = Just auth
+      , auth = auth
       , decoder = Helix.games
       , tagger = Response << Games
       , url = (fetchGamesUrl gameIds)
@@ -1226,7 +1226,7 @@ fetchVideos : String -> String -> Cmd Msg
 fetchVideos userId auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = Helix.videos
     , tagger = Response << (Videos userId)
     , url = (fetchVideosUrl userId)
@@ -1240,7 +1240,7 @@ fetchFollowers : String -> String -> Cmd Msg
 fetchFollowers userId auth =
   Helix.send <|
     { clientId = TwitchId.clientId
-    , auth = Just auth
+    , auth = auth
     , decoder = followCount
     , tagger = Response << (Followers userId)
     , url = (fetchFollowersUrl userId)

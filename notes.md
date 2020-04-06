@@ -1,5 +1,7 @@
+- central error handling
 - no way to clear auto host channel
 - login prompt
+- better feedback on some disabled controls
 - can't delete from channel list
 - toggle for host off alarm
 - settable viewer/follower weight
