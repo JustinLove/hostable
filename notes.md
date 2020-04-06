@@ -1,4 +1,3 @@
-- login prompt
 - better feedback on some disabled controls
 - toggle for host off alarm
 - settable viewer/follower weight

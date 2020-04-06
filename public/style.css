@@ -10,6 +10,14 @@ nav li .navigation-controls { margin-right: 0.5em; }
 
 .autohost-controls { display: inline-block; }
 
+.login-prompt {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-bottom: 5em;
+}
+.login-prompt .please-login { text-align: center; }
+.login-prompt .login { text-align: center; }
 .streams { display: flex; flex-wrap: wrap; list-style-type: none;}
 .stream { width: 240px; height: 225px; padding: 10px; }
 .hosted { background: rgb(0, 128, 0); }

@@ -87,7 +87,7 @@ view model =
   div []
     [ headerView model
     , case model.appMode of
-      LiveStreams -> liveStreamsView model
+      LiveStreams -> liveStreamsOrLoginView model
       Channels -> channelsView model
       GameScores -> gamesView model
       TagScores -> tagsView model
@@ -187,6 +187,11 @@ autoHostEnabledView model =
         ))
       ]
     ]
+
+liveStreamsOrLoginView model =
+  case model.auth of
+    Just _ -> liveStreamsView model
+    Nothing -> loginView model
 
 liveStreamsView model =
   model
@@ -574,6 +579,12 @@ nameOfGame mgame =
     Nothing ->
       "--"
 
+loginView model =
+  div [ class "login-prompt" ]
+    [ h1 [ class "please-login" ] [ text "Please Login" ]
+    , div [ class "login" ] [ displayLogin model ]
+    ]
+
 displayLogin model =
   case model.auth of
     Just _ ->
@@ -583,7 +594,11 @@ displayLogin model =
         , a [ href "#", onClick Logout ] [ text "logout" ]
         ]
     Nothing ->
-      a [ href (authorizeUrl (urlForRedirect model.location)) ] [ text "login" ]
+      span []
+        [ text " "
+        , a [ href (authorizeUrl (urlForRedirect model.location)) ]
+            [ icon "twitch", text "login" ]
+        ]
 
 authorizeUrl : String -> String
 authorizeUrl redirectUri =
