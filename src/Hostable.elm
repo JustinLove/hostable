@@ -13,7 +13,7 @@ import Twitch.Tmi.Chat as Chat
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
-import View exposing (AppMode(..), ChannelStatus(..), AutoHostStatus(..))
+import View exposing (AppMode(..), ChannelStatus(..), AutoHostStatus(..), HostOnChannel(..))
 
 import Browser
 import Browser.Dom as Dom
@@ -93,7 +93,7 @@ type alias Model =
   , userPreviewVersion : Dict String Int
   , auth : Maybe String
   , authLogin : Maybe String
-  , autoChannel : Maybe String
+  , autoChannel : HostOnChannel
   , ircConnection : ConnectionStatus
   , pendingUsers : List String
   , pendingUserStreams : List String
@@ -138,7 +138,9 @@ init href =
     , userPreviewVersion = Dict.empty
     , auth = auth
     , authLogin = Nothing
-    , autoChannel = Nothing
+    , autoChannel = case auth of
+      Just _ -> HostOnLogin
+      Nothing -> HostNothing
     , ircConnection = Disconnected
     , pendingUsers = []
     , pendingUserStreams = []
@@ -181,7 +183,7 @@ logout model =
   , userPreviewVersion = model.userPreviewVersion
   , auth = Nothing
   , authLogin = Nothing
-  , autoChannel = Nothing
+  , autoChannel = model.autoChannel
   , ircConnection = Disconnected
   , pendingUsers = []
   , pendingUserStreams = []
@@ -226,8 +228,8 @@ update msg model =
             Just _ -> state.auth
             Nothing -> model.auth
           , autoChannel = case state.autoChannel of
-            Just _ -> state.autoChannel
-            Nothing -> model.authLogin
+            Just channel -> HostOn channel
+            Nothing -> model.autoChannel
           , pendingUserStreams = List.map .id state.users
           }
         Nothing ->
@@ -263,8 +265,9 @@ update msg model =
         | authLogin = Just user.login
         }
         |> appendUnauthenticatedRequests (case model.autoChannel of
-          Nothing -> [ fetchChannel user.login ]
-          Just autoChannel -> [ fetchChannelStream autoChannel ]
+          HostOnLogin -> [ fetchChannel user.login ]
+          HostOn autoChannel-> [ fetchChannelStream autoChannel ]
+          HostNothing -> []
         )
       , Cmd.none
       )
@@ -273,7 +276,7 @@ update msg model =
       (model, Cmd.none)
     Channel (user::_) ->
       { model
-      | autoChannel = Just user.login
+      | autoChannel = HostOn user.login
       , channelStatus = Unknown
       }
       |> appendUnauthenticatedRequests [ fetchChannelStream user.login ]
@@ -552,6 +555,12 @@ update msg model =
         |> appendUnauthenticatedRequests [ fetchChannel lower ]
       , Cmd.none
       )
+    UI View.RemoveHostTracking ->
+      { model
+      | autoChannel = HostNothing
+      , channelStatus = Unknown
+      }
+      |> persist
     SocketEvent id (PortSocket.Error value) ->
       let _ = Debug.log "websocket error" value in
       (model, Cmd.none)
@@ -724,7 +733,13 @@ chatResponse id message line model =
 
 chatConnectionUpdate : Model -> (Model, Cmd Msg)
 chatConnectionUpdate model =
-  case (model.ircConnection, model.autoChannel) of
+  let
+    autoChannel = case model.autoChannel of
+      HostOn channel -> Just channel
+      HostOnLogin -> Nothing
+      HostNothing -> Nothing
+  in
+  case (model.ircConnection, autoChannel) of
     (Disconnected, Just _) ->
       ( {model | ircConnection = Connect twitchIrc initialReconnectDelay}
       , Cmd.none
@@ -915,7 +930,11 @@ saveState model =
       model.events
       model.followers
       model.auth
-      model.autoChannel
+      (case model.autoChannel of
+        HostOn channel -> Just channel
+        HostOnLogin -> Nothing
+        HostNothing -> Nothing
+      )
     |> Persist.Encode.persist
     |> LocalStorage.saveJson
 
@@ -1022,7 +1041,7 @@ pollAutoChannel model =
   let _ = Debug.log "poll" model.autoChannel in
   model
     |> appendUnauthenticatedRequests (case model.autoChannel of
-      Just autoChannel -> [ fetchChannelStream autoChannel ]
+      HostOn autoChannel -> [ fetchChannelStream autoChannel ]
       _ -> []
     )
 

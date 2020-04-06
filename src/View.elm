@@ -1,4 +1,4 @@
-module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..), view, document, sortedStreams)
+module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..), HostOnChannel(..), view, document, sortedStreams)
 
 import Twitch.Helix.Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -45,6 +45,7 @@ type Msg
   | Navigate AppMode
   | AutoHost Bool
   | HostOnChannel String
+  | RemoveHostTracking
 
 type AppMode
   = LiveStreams
@@ -64,6 +65,11 @@ type AutoHostStatus
   | AutoDisabled
   | AutoEnabled
   | Pending
+
+type HostOnChannel
+  = HostOn String
+  | HostOnLogin
+  | HostNothing
 
 boxWidth = 70
 boxHeight = 95
@@ -174,7 +180,11 @@ autoHostEnabledView model =
       , disabled (model.autoHostStatus == Incapable)
       ] []
     , label [ for "autohost" ]
-      [ text ("Auto-Host " ++ (model.autoChannel |> Maybe.withDefault "?"))
+      [ text ("Auto-Host " ++ (case model.autoChannel of
+          HostOn name -> name
+          HostOnLogin -> "?"
+          HostNothing -> "?"
+        ))
       ]
     ]
 
@@ -501,8 +511,8 @@ settingsView model =
             Nothing ->
               text ""
           ]
-    , if model.autoHostStatus == Incapable then
-        text ""
+    , if model.auth == Nothing then
+        text "incapable"
       else
         li [ class "add-channel" ]
           [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
@@ -511,9 +521,14 @@ settingsView model =
             [ type_ "text"
             , id "hostonchannel"
             , name "hostonchannel"
-            , value (model.autoChannel |> Maybe.withDefault "")
+            , value (case model.autoChannel of
+                HostOn name -> name
+                HostOnLogin -> ""
+                HostNothing -> ""
+              )
             , on "change" <| targetValue Json.Decode.string HostOnChannel
             ] []
+          , button [onClick RemoveHostTracking] [ text "X" ]
           ]
     ]
 

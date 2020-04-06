@@ -1,4 +1,3 @@
-- no way to clear auto host channel
 - login prompt
 - proper chat logout
 - better feedback on some disabled controls
