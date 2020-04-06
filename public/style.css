@@ -8,6 +8,17 @@ nav li div { display: inline-block; }
 nav li .navigation-controls { margin-right: 0.5em; }
 .requests { position: absolute; top: 0; left 0; background: rgb(100, 65, 164); }
 
+.refresh button:disabled, #channelname:disabled {
+  background-color: rgb(23, 20, 31);
+  border: dashed rgb(218, 216, 222) 1px;
+  color: rgb(109, 108, 111);
+}
+#autohost:disabled + label { color: rgb(109, 108, 111); }
+.add-channel {
+  display: flex;
+  flex-direction: column-reverse;
+}
+#channelname:disabled + label { color: rgb(109, 108, 111); }
 .autohost-controls { display: inline-block; }
 
 .login-prompt {

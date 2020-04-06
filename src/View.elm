@@ -122,8 +122,7 @@ headerView model =
         ]
       ]
     , div [ class "add-channel" ]
-      [ label [ for "channelname" ] [ text "Add Channel" ]
-      , input
+      [ input
         [ type_ "text"
         , id "channelname"
         , name "channelname"
@@ -131,6 +130,7 @@ headerView model =
         , on "change" <| targetValue Json.Decode.string AddChannel
         , authEnabled model
         ] []
+      , label [ for "channelname" ] [ text "Add Channel" ]
       ]
     , button [ onClick Export ] [ text "export" ]
     , if model.audioNotice /= Nothing then
@@ -520,7 +520,7 @@ settingsView model =
     , if model.auth == Nothing then
         text ""
       else
-        li [ class "add-channel" ]
+        li [ class "host-on-channel" ]
           [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
           , text " "
           , input
