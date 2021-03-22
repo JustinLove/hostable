@@ -1,6 +1,6 @@
 module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..), HostOnChannel(..), view, document, sortedStreams)
 
-import Twitch.Helix.Decode exposing (Stream)
+import Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
 import TwitchId
 import Persist exposing (User, Game, FollowCount)
@@ -196,7 +196,7 @@ liveStreamsOrLoginView model =
 liveStreamsView model =
   model
     |> sortedStreams
-    |> List.map (\stream -> (stream.channelId, (streamView model stream)))
+    |> List.map (\stream -> (stream.id, (streamView model stream)))
     |> Keyed.ul [ id "streams", class "streams" ]
 
 --streamView : Model -> Stream -> Html Msg

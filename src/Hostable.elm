@@ -1,13 +1,14 @@
 module Hostable exposing (..)
 
+import Decode exposing (Stream)
 import LocalStorage
 import MeasureText
 import Persist exposing (Persist, Export, User, Game, FollowCount)
 import Persist.Encode
 import Persist.Decode
 import PortSocket
-import Twitch.Helix.Decode as Helix exposing (Stream)
-import Twitch.Helix as Helix
+import Twitch.Helix exposing (UserId)
+import Twitch.Helix.Request as Helix
 import Twitch.Tmi.Chat as Chat
 --import Twitch.Tmi.ChatSamples as Chat
 import TwitchId
@@ -47,16 +48,16 @@ type Msg
   = Loaded (Maybe Persist)
   | Imported (Result Json.Decode.Error Export)
   | HttpError String Http.Error
-  | Self (List Helix.User)
-  | Channel (List Helix.User)
-  | Users (List Helix.User)
-  | UserUpdate (List Helix.User)
-  | UnknownUsers (List Helix.User)
-  | HostingUser (List Helix.User)
+  | Self (List String)
+  | Channel (List String)
+  | Users (List User)
+  | UserUpdate (List User)
+  | UnknownUsers (List User)
+  | HostingUser (List User)
   | Streams (List Stream)
   | ChannelStream (List Stream)
-  | Games (List Helix.Game)
-  | Videos String (List Helix.Video)
+  | Games (List Game)
+  | Videos UserId (List Event)
   | Followers String Int
   | NextHost Posix
   | LivePoll Posix
@@ -260,12 +261,12 @@ update msg model =
     HttpError source (error) ->
       let _ = Debug.log ("fetch error: " ++ source) error in
       (model, Cmd.none)
-    Self (user::_) ->
+    Self (login::_) ->
       ( { model
-        | authLogin = Just user.login
+        | authLogin = Just login
         }
         |> appendUnauthenticatedRequests (case model.autoChannel of
-          HostOnLogin -> [ fetchChannel user.login ]
+          HostOnLogin -> [ fetchChannel login ]
           HostOn autoChannel-> [ fetchChannelStream autoChannel ]
           HostNothing -> []
         )
@@ -274,19 +275,19 @@ update msg model =
     Self _ ->
       let _ = Debug.log "self did not find user" "" in
       (model, Cmd.none)
-    Channel (user::_) ->
+    Channel (login::_) ->
       { model
-      | autoChannel = HostOn user.login
+      | autoChannel = HostOn login
       , channelStatus = Unknown
       }
-      |> appendUnauthenticatedRequests [ fetchChannelStream user.login ]
+      |> appendUnauthenticatedRequests [ fetchChannelStream login ]
       |> persist
     Channel _ ->
       let _ = Debug.log "channel did not find user" "" in
       (model, Cmd.none)
     Users users ->
       { model
-      | users = addUsers (List.map (importUser>>persistUser) users) model.users
+      | users = addUsers (List.map persistUser users) model.users
       , pendingUserStreams = List.append model.pendingUserStreams
         <| List.map .id users
       }
@@ -295,12 +296,12 @@ update msg model =
       |> persist
     UserUpdate users ->
       { model
-      | users = addUsers (List.map (importUser>>persistUser) users) model.users
+      | users = addUsers (List.map persistUser users) model.users
       }
       |> persist
     UnknownUsers users ->
       ( { model
-        | users = addUsers (List.map importUser users) model.users
+        | users = addUsers users model.users
         }
       , Cmd.none)
     HostingUser (user::_) ->
@@ -315,8 +316,7 @@ update msg model =
     Streams streams ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
-        <| fetchUnknownUsers streams
-        <| fetchUnknownFollows streams
+        <| fetchUnknownUsers streams <| fetchUnknownFollows streams
         <| fetchExpiredFollows streams
         { model
         | liveStreams = List.foldl (\s liveStreams ->
@@ -346,17 +346,13 @@ update msg model =
     Games news ->
       { model
       | games = List.foldl (\g games ->
-          Dict.insert g.id (importGame g) games
+          Dict.insert g.id g games
         ) model.games news
       }
       |> persist
-    Videos userId videos ->
+    Videos userId events ->
       { model
-      | events = Dict.insert userId
-        (videos
-          |> List.filter (\v -> v.videoType == Helix.Archive)
-          |> List.map (\v -> {start = v.createdAt, duration = v.duration})
-        ) model.events
+      | events = Dict.insert userId events model.events
       }
         |> persist
     Followers userId count ->
@@ -982,25 +978,9 @@ subscriptions model =
       |> Maybe.withDefault Sub.none
     ]
 
-importUser : Helix.User -> User
-importUser user =
-  { id = user.id
-  , displayName = user.displayName
-  , tags = []
-  , persisted = False
-  }
-
 persistUser : User -> User
 persistUser user =
   {user | persisted = True}
-
-importGame : Helix.Game -> Game
-importGame game =
-  { id = game.id
-  , name = game.name
-  , boxArtUrl = game.boxArtUrl
-  , score = Nothing
-  }
 
 commentsForStream : String -> List (String, List String) -> List String
 commentsForStream userName users =
@@ -1132,7 +1112,7 @@ fetchUsersByLogin users auth =
     Helix.send <|
       { clientId = TwitchId.clientId
       , auth = auth
-      , decoder = Helix.users
+      , decoder = Decode.users
       , tagger = httpResponse "Users" Users
       , url = (fetchUsersByLoginUrl users)
       }
@@ -1142,7 +1122,7 @@ fetchChannel user auth =
   Helix.send <|
     { clientId = TwitchId.clientId
     , auth = auth
-    , decoder = Helix.users
+    , decoder = Decode.logins
     , tagger = httpResponse "Channel" Channel
     , url = (fetchUsersByLoginUrl [user])
     }
@@ -1159,7 +1139,7 @@ fetchUsersById ids auth =
     Helix.send <|
       { clientId = TwitchId.clientId
       , auth = auth
-      , decoder = Helix.users
+      , decoder = Decode.users
       , tagger = httpResponse "UserUpdate" UserUpdate
       , url = (fetchUsersByIdUrl ids)
       }
@@ -1172,7 +1152,7 @@ fetchUnknownUsersById ids auth =
     Helix.send <|
       { clientId = TwitchId.clientId
       , auth = auth
-      , decoder = Helix.users
+      , decoder = Decode.users
       , tagger = httpResponse "UnknownUsers" UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
@@ -1182,7 +1162,7 @@ fetchHostingUser login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
     , auth = auth
-    , decoder = Helix.users
+    , decoder = Decode.users
     , tagger = httpResponse "HostingUser" HostingUser
     , url = (fetchUsersByLoginUrl [login])
     }
@@ -1196,7 +1176,7 @@ fetchSelf auth =
   Helix.send <|
     { clientId = TwitchId.clientId
     , auth = auth
-    , decoder = Helix.users
+    , decoder = Decode.logins
     , tagger = httpResponse "Self" Self
     , url = fetchSelfUrl
     }
@@ -1213,7 +1193,7 @@ fetchStreamsByUserIds userIds auth =
     Helix.send <|
       { clientId = TwitchId.clientId
       , auth = auth
-      , decoder = Helix.streams
+      , decoder = Decode.streams
       , tagger = httpResponse "Streams" Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
       }
@@ -1227,7 +1207,7 @@ fetchChannelStream login auth =
   Helix.send <|
     { clientId = TwitchId.clientId
     , auth = auth
-    , decoder = Helix.streams
+    , decoder = Decode.streams
     , tagger = httpResponse "ChannelStream" ChannelStream
     , url = (fetchChannelStreamUrl login)
     }
@@ -1244,7 +1224,7 @@ fetchGames gameIds auth =
     Helix.send <|
       { clientId = TwitchId.clientId
       , auth = auth
-      , decoder = Helix.games
+      , decoder = Decode.games
       , tagger = httpResponse "Games" Games
       , url = (fetchGamesUrl gameIds)
       }
@@ -1258,7 +1238,7 @@ fetchVideos userId auth =
   Helix.send <|
     { clientId = TwitchId.clientId
     , auth = auth
-    , decoder = Helix.videos
+    , decoder = Decode.events
     , tagger = httpResponse "Videos" (Videos userId)
     , url = (fetchVideosUrl userId)
     }
