@@ -1,3 +1,4 @@
+- local storage as result?
 - toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
