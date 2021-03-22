@@ -2,6 +2,7 @@ module Hostable exposing (..)
 
 import Decode exposing (Stream)
 import LocalStorage
+import Log
 import MeasureText
 import Persist exposing (Persist, Export, User, Game, FollowCount)
 import Persist.Encode
@@ -27,8 +28,8 @@ import Http
 import Time exposing (Posix, Zone)
 import Set
 import Dict exposing (Dict)
-import Json.Decode
-import Json.Encode
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Url exposing (Url)
 import Url.Parser
 import Url.Parser.Query
@@ -46,7 +47,7 @@ audioNoticeLength = 3 * 1000
 
 type Msg
   = Loaded (Maybe Persist)
-  | Imported (Result Json.Decode.Error Export)
+  | Imported (Result Decode.Error Export)
   | HttpError String Http.Error
   | Self (List String)
   | Channel (List String)
@@ -252,15 +253,17 @@ update msg model =
       |> fetchNextUserStreamBatch requestLimit
       |> persist
     Imported (Err err) ->
-      let _ = Debug.log "import error: " err in
-      (model, Cmd.none)
+      (model, Log.decodeError "import error: " err)
     HttpError source (Http.BadStatus 401) ->
-      let _ = Debug.log ("fetch auth error: " ++ source) "" in
-      logout model
-        |> persist
+      let m2 = logout model in
+      ( m2
+      , Cmd.batch
+        [ saveState m2
+        , Log.warn ("fetch auth error: " ++ source)
+        ]
+      )
     HttpError source (error) ->
-      let _ = Debug.log ("fetch error: " ++ source) error in
-      (model, Cmd.none)
+      (model, Log.httpError ("fetch error: " ++ source) error)
     Self (login::_) ->
       ( { model
         | authLogin = Just login
@@ -273,8 +276,7 @@ update msg model =
       , Cmd.none
       )
     Self _ ->
-      let _ = Debug.log "self did not find user" "" in
-      (model, Cmd.none)
+      (model, Log.warn "self did not find user")
     Channel (login::_) ->
       { model
       | autoChannel = HostOn login
@@ -283,8 +285,7 @@ update msg model =
       |> appendUnauthenticatedRequests [ fetchChannelStream login ]
       |> persist
     Channel _ ->
-      let _ = Debug.log "channel did not find user" "" in
-      (model, Cmd.none)
+      (model, Log.warn "channel did not find user")
     Users users ->
       { model
       | users = addUsers (List.map persistUser users) model.users
@@ -311,8 +312,7 @@ update msg model =
       , Cmd.none
       )
     HostingUser _ ->
-      let _ = Debug.log "hosting did not find user" "" in
-      (model, Cmd.none)
+      (model, Log.warn "hosting did not find user")
     Streams streams ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
@@ -387,12 +387,19 @@ update msg model =
             let
               muser = Dict.get top.userId m2.users
               name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
-              _ = Debug.log "picking" name
             in
-              ({m2 | autoHostStatus = AutoEnabled}, Cmd.batch [cmd2, hostChannel m2.ircConnection name])
+              ( {m2 | autoHostStatus = AutoEnabled}
+              , Cmd.batch
+                [ cmd2
+                , hostChannel m2.ircConnection name
+                , Log.info ("picking " ++ name)
+                ])
           _ ->
-            let _ = Debug.log "no streams" "" in
-            ({m2 | autoHostStatus = AutoEnabled}, cmd2)
+            ( {m2 | autoHostStatus = AutoEnabled}
+            , Cmd.batch
+              [ cmd2
+              , Log.info "no streams"
+              ])
       else
         (m2, cmd2)
     AudioStart time ->
@@ -558,10 +565,9 @@ update msg model =
       }
       |> persist
     SocketEvent id (PortSocket.Error value) ->
-      let _ = Debug.log "websocket error" value in
-      (model, Cmd.none)
+      (model, Log.error "websocket error" value)
     SocketEvent id (PortSocket.Connecting url) ->
-      let _ = Debug.log "websocket connecting" id in
+      --let _ = Debug.log "websocket connecting" id in
       ( { model | ircConnection = case model.ircConnection of
           Connect _ timeout -> Connecting id timeout
           Connecting _ timeout -> Connecting id timeout
@@ -572,12 +578,12 @@ update msg model =
           |> Maybe.withDefault Cmd.none
       )
     SocketEvent id (PortSocket.Open url) ->
-      let _ = Debug.log "websocket open" id in
+      --let _ = Debug.log "websocket open" id in
       ( {model | ircConnection = Connected id}
       , Cmd.none
       )
     SocketEvent id (PortSocket.Close url) ->
-      let _ = Debug.log "websocket closed" id in
+      --let _ = Debug.log "websocket closed" id in
       case model.ircConnection of
         Disconnected ->
           (model, Cmd.none)
@@ -607,18 +613,20 @@ update msg model =
         Parting wasId _ _ ->
           closeIfCurrent model wasId id
     SocketEvent id (PortSocket.Message message) ->
-      let _ = Debug.log "websocket message" message in
+      --let _ = Debug.log "websocket message" message in
       case (Parser.run Chat.message message) of
         Ok lines ->
           List.foldl (reduce (chatResponse id message)) (model, Cmd.none) lines
         Err err ->
-          let _ = Debug.log message err in
-          (model, Cmd.none)
+          (model, parseError message err)
     Reconnect time ->
-      case Debug.log "reconnect" model.ircConnection of
+      case model.ircConnection of
         Connect url timeout ->
           ( {model | ircConnection = Connect url (timeout*2)}
-          , PortSocket.connect url
+          , Cmd.batch
+            [ PortSocket.connect url
+            , Log.info "reconnect"
+            ]
           )
         Connecting id timeout ->
           ( {model | ircConnection = Connect twitchIrc (timeout*2)}
@@ -632,18 +640,29 @@ update msg model =
 
 chatResponse : PortSocket.Id -> String -> Chat.Line -> Model -> (Model, Cmd Msg)
 chatResponse id message line model =
-  let
-    _ = line.tags
-      |> List.map (\tag -> case tag of 
-        Chat.UnknownTag _ _ ->
-          Debug.log message tag
-        _ -> tag
-      )
-  in
+  reduce (chatCommandResponse id message) line (model, collectUnknownTags message line)
+
+collectUnknownTags : String -> Chat.Line -> Cmd Msg
+collectUnknownTags message line =
+  line.tags
+    |> List.filterMap (\tag -> case tag of 
+      Chat.UnknownTag key value ->
+        Cmd.batch
+          [ ("unknown tag" ++ key ++ "=" ++ value)
+            |> Log.info
+          , Log.info message
+          ]
+          |> Just
+      _ -> Nothing
+    )
+    |> Cmd.batch
+
+chatCommandResponse : PortSocket.Id -> String -> Chat.Line -> Model -> (Model, Cmd Msg)
+chatCommandResponse id message line model =
   case line.command of
     "CAP" -> (model, Cmd.none)
     "HOSTTARGET" ->
-      let _ = Debug.log "hosttarget" line in
+      let log = ("hosttarget" :: line.params) |> String.join " " |> Log.info in
       case line.params of
         [_, target] ->
           case String.split " " target of
@@ -652,13 +671,16 @@ chatResponse id message line model =
                 | channelStatus = Unknown
                 }
                 |> pollAutoChannel
-              , (Time.now |> Task.perform AudioStart)
+              , Cmd.batch
+                [ (Time.now |> Task.perform AudioStart)
+                , log
+                ]
               )
             channel::_ ->
               (model |> appendUnauthenticatedRequests [fetchHostingUser channel]
               , Cmd.none)
-            _ -> (model, Cmd.none)
-        _ -> (model, Cmd.none)
+            _ -> (model, log)
+        _ -> (model, log)
     "JOIN" ->
       let
           user = line.prefix
@@ -678,8 +700,12 @@ chatResponse id message line model =
     "NOTICE" ->
       case line.params of
         ["*", "Improperly formatted auth"] ->
-          let _ = Debug.log "Authentication failed" line.params in
-          ({model | ircConnection = Rejected}, PortSocket.close id)
+          ( {model | ircConnection = Rejected}
+          , Cmd.batch
+            [ PortSocket.close id
+            , Log.error "Authentication failed" (encodeLine line)
+            ]
+          )
         _ -> 
           (model, Cmd.none)
     "PART" ->
@@ -702,7 +728,10 @@ chatResponse id message line model =
     "PRIVMSG" -> (model, Cmd.none)
     "ROOMSTATE" -> (model, Cmd.none)
     "USERNOTICE" ->
-      let _ = Debug.log "usernotice" line in
+      --let _ = Debug.log "usernotice" line in
+      (model, Cmd.none)
+    "USERSTATE" ->
+      --let _ = Debug.log "userstate" line in
       (model, Cmd.none)
     "001" -> (model, Cmd.none)
     "002" -> (model, Cmd.none)
@@ -710,8 +739,14 @@ chatResponse id message line model =
     "004" -> (model, Cmd.none)
     "353" -> (model, Cmd.none) --names list
     "366" -> -- end of names list
-      let _ = Debug.log "joined room" (List.head (List.drop 1 line.params)) in
-      (model, Cmd.none)
+      ( model
+      , line.params
+        |> List.drop 1
+        |> List.head
+        |> Maybe.withDefault "unknown"
+        |> (\s -> "joined room " ++ s)
+        |> Log.info
+      )
     "375" -> (model, Cmd.none)
     "372" -> (model, Cmd.none)
     "376" -> 
@@ -723,9 +758,7 @@ chatResponse id message line model =
         ]
       )
     _ ->
-      let _ = Debug.log message line in
-      (model, Cmd.none)
-
+      (model, unknownMessage message line)
 
 chatConnectionUpdate : Model -> (Model, Cmd Msg)
 chatConnectionUpdate model =
@@ -941,7 +974,7 @@ export model =
       (model.games |> Dict.values |> List.filter (\g -> g.score /= Nothing))
       model.scoredTags
     |> Persist.Encode.export
-    |> Json.Encode.encode 2
+    |> Encode.encode 2
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -998,8 +1031,8 @@ commentIfMatch userName (name, comments) =
 receiveImported : String -> Msg
 receiveImported string =
   string
-    |> Json.Decode.decodeString Persist.Decode.export
-    |> Result.mapError (Debug.log "import decode error")
+    |> Decode.decodeString Persist.Decode.export
+    --|> Result.mapError (Debug.log "import decode error")
     |> Imported
 
 fetchNextUserBatch : Int -> Model -> Model
@@ -1018,7 +1051,7 @@ fetchNextUserStreamBatch batch model =
 
 pollAutoChannel : Model -> Model
 pollAutoChannel model =
-  let _ = Debug.log "poll" model.autoChannel in
+  --let _ = Debug.log "poll" model.autoChannel in
   model
     |> appendUnauthenticatedRequests (case model.autoChannel of
       HostOn autoChannel -> [ fetchChannelStream autoChannel ]
@@ -1257,12 +1290,26 @@ fetchFollowers userId auth =
     , url = (fetchFollowersUrl userId)
     }
 
-followCount : Json.Decode.Decoder Int
+followCount : Decode.Decoder Int
 followCount =
-    Json.Decode.field "total" Json.Decode.int
+    Decode.field "total" Decode.int
 
 extractHashArgument : String -> Url -> Maybe String
 extractHashArgument key location =
   { location | path = "", query = location.fragment }
     |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string key))
     |> Maybe.withDefault Nothing
+
+parseError message error = Log.error message (Encode.string (Chat.deadEndsToString error))
+
+unknownMessage : String -> Chat.Line -> Cmd Msg
+unknownMessage message line =
+  Log.debug ("unknown: " ++ message) (encodeLine line)
+
+encodeLine : Chat.Line -> Encode.Value
+encodeLine line =
+  Encode.object
+    [ ("prefix", line.prefix |> Maybe.map Encode.string |> Maybe.withDefault Encode.null)
+    , ("command", Encode.string line.command)
+    , ("params", Encode.list Encode.string line.params)
+    ]

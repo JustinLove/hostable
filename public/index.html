@@ -126,11 +126,40 @@ if (app.ports.webSocketCommand) {
   app.ports.webSocketCommand.subscribe(command)
 }
 
+// ------------------ ObsStudio ------------------
 if (window.obsstudio
     && app.ports.obsStudioOnVisibilityChange) {
   window.obsstudio.onActiveChange = function(visible) {
     app.ports.obsStudioOnVisibilityChange.send(visible)
   }
+}
+
+// ------------------ Log ------------------
+var logCommand = function(message) {
+  switch(message.kind) {
+    case 'debug':
+      console.debug(message.note, message.value)
+      break
+    case 'log':
+      console.log(message.note)
+      break
+    case 'info':
+      console.info(message.note)
+      break
+    case 'warn':
+      console.warn(message.note)
+      break
+    case 'error':
+      console.error(message.note, message.value)
+      break
+    default:
+      console.log('unknown message', message)
+      break;
+  }
+}
+
+if (app.ports.logCommand) {
+  app.ports.logCommand.subscribe(logCommand)
 }
 </script>
 <script defer src="svgxuse.js"></script>
