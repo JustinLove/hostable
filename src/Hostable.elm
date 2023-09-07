@@ -36,7 +36,6 @@ unauthenticatedRequestRate = 30
 authenticatedRequestRate = 800
 autoHostDelay = 10 * 60 * 1000
 followExpiration = 90 * 24 * 60 * 60 * 1000
-audioNoticeLength = 3 * 1000
 
 type Msg
   = Loaded (Maybe Persist)
@@ -50,8 +49,6 @@ type Msg
   | Games (List Game)
   | Videos UserId (List Event)
   | Followers String Int
-  | AudioStart Posix
-  | AudioEnd Posix
   | Response Msg
   | NextRequest Posix
   | CurrentZone Zone
@@ -80,7 +77,6 @@ type alias Model =
   , selectedGame : Maybe String
   , selectedTag : Maybe String
   , exportingAuth : Maybe String
-  , audioNotice : Maybe Posix
   , location : Url
   , time : Posix
   , zone : Zone
@@ -121,13 +117,11 @@ init href =
     , selectedGame = Nothing
     , selectedTag = Nothing
     , exportingAuth = Nothing
-    , audioNotice = Nothing
     , location = url
     , time = Time.millisToPosix 0
     , zone = Time.utc
     , labelWidths = Dict.empty
     }
-    --|> update (AudioStart (Time.millisToPosix 0)) |> Tuple.first
   , Cmd.batch 
     [ Task.perform CurrentZone Time.here
     , ScheduleGraph.allDays
@@ -159,7 +153,6 @@ logout model =
   , selectedGame = Nothing
   , selectedTag = Nothing
   , exportingAuth = Nothing
-  , audioNotice = Nothing
   , location = model.location
   , time = model.time
   , zone = model.zone
@@ -275,10 +268,6 @@ update msg model =
         |> persist
     Response subMsg ->
       update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
-    AudioStart time ->
-      ({model | audioNotice = Just time}, Cmd.none)
-    AudioEnd _ ->
-      ({model | audioNotice = Nothing}, Cmd.none)
     NextRequest time ->
       case model.pendingRequests of
         next :: rest ->
@@ -526,9 +515,6 @@ subscriptions model =
             Time.every (1000*60*1.05/unauthenticatedRequestRate) NextRequest
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , MeasureText.textSize TextSize
-    , model.audioNotice
-      |> Maybe.map (\_ -> Time.every audioNoticeLength AudioEnd)
-      |> Maybe.withDefault Sub.none
     ]
 
 persistUser : User -> User

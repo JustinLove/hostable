@@ -115,13 +115,6 @@ headerView model =
       , label [ for "channelname" ] [ text "Add Channel" ]
       ]
     , button [ onClick Export ] [ text "export" ]
-    , if model.audioNotice /= Nothing then
-        audio
-          [ autoplay True
-          , src "190039__fk-prod__short-drone.mp3"
-          ] []
-      else
-        text ""
     ] 
 
 navigationItem : AppMode -> AppMode -> String -> String -> Html Msg

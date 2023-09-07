@@ -2,8 +2,6 @@
 - mature game in igdb api
 - mature flag now in streams
 - local storage as result?
-- toggle for host off alarm
 - settable viewer/follower weight
 - reshuffling while adding tags
-- disconnect from chat when not relevant?
 - streams not found? - need more context information
