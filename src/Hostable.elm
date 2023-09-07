@@ -1278,7 +1278,7 @@ fetchVideos userId auth =
 
 fetchFollowersUrl : String -> String
 fetchFollowersUrl userId =
-  "https://api.twitch.tv/helix/users/follows?first=1&to_id=" ++ userId
+  "https://api.twitch.tv/helix/channels/followers?first=1&broadcaster_id=" ++ userId
 
 fetchFollowers : String -> String -> Cmd Msg
 fetchFollowers userId auth =

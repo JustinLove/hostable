@@ -1,3 +1,8 @@
+- chat usage?
+- no hosting
+- content classification labels apis
+- mature game in igdb api
+- mature flag now in streams
 - local storage as result?
 - toggle for host off alarm
 - settable viewer/follower weight
