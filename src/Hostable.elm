@@ -7,11 +7,8 @@ import MeasureText
 import Persist exposing (Persist, Export, User, Game, FollowCount)
 import Persist.Encode
 import Persist.Decode
-import PortSocket
 import Twitch.Helix exposing (UserId)
 import Twitch.Helix.Request as Helix
-import Twitch.Tmi.Chat as Chat
---import Twitch.Tmi.ChatSamples as Chat
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
@@ -38,11 +35,7 @@ requestLimit = 100
 unauthenticatedRequestRate = 30
 authenticatedRequestRate = 800
 autoHostDelay = 10 * 60 * 1000
-initialReconnectDelay = 1000
 followExpiration = 90 * 24 * 60 * 60 * 1000
-twitchIrc = "wss://irc-ws.chat.twitch.tv:443"
-sampleHost = ":tmi.twitch.tv HOSTTARGET #wondibot :wondible 3\r\n"
-sampleHostOff = ":tmi.twitch.tv HOSTTARGET #wondibot :- 0\r\n"
 audioNoticeLength = 3 * 1000
 
 type Msg
@@ -70,20 +63,6 @@ type Msg
   | TextSize MeasureText.TextSize
   | Focused (Result Dom.Error ())
   | UI (View.Msg)
-  | SocketEvent PortSocket.Id PortSocket.Event
-  | Reconnect Posix
-
-type ConnectionStatus
-  = Disconnected
-  | Rejected
-  | Connect String Float
-  | Connecting PortSocket.Id Float
-  | Connected PortSocket.Id
-  | LoggingIn PortSocket.Id String
-  | LoggedIn PortSocket.Id String
-  | Joining PortSocket.Id String String
-  | Joined PortSocket.Id String String
-  | Parting PortSocket.Id String String
 
 type alias Model =
   { users : Dict String User
@@ -96,7 +75,6 @@ type alias Model =
   , auth : Maybe String
   , authLogin : Maybe String
   , autoChannel : HostOnChannel
-  , ircConnection : ConnectionStatus
   , pendingUsers : List String
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
@@ -119,7 +97,7 @@ type alias Model =
 
 main = Browser.document
   { init = init
-  , update = updateWithChecks
+  , update = update
   , subscriptions = subscriptions
   , view = View.document UI
   }
@@ -143,7 +121,6 @@ init href =
     , autoChannel = case auth of
       Just _ -> HostOnLogin
       Nothing -> HostNothing
-    , ircConnection = Disconnected
     , pendingUsers = []
     , pendingUserStreams = []
     , pendingRequests = []
@@ -163,7 +140,6 @@ init href =
     , zone = Time.utc
     , labelWidths = Dict.empty
     }
-    --|> update (SocketEvent 0 (PortSocket.Message sampleHost)) |> Tuple.first
     --|> update (AudioStart (Time.millisToPosix 0)) |> Tuple.first
   , Cmd.batch 
     [ Task.perform CurrentZone Time.here
@@ -186,7 +162,6 @@ logout model =
   , auth = Nothing
   , authLogin = Nothing
   , autoChannel = HostNothing
-  , ircConnection = model.ircConnection -- let the state machine handle this
   , pendingUsers = []
   , pendingUserStreams = []
   , pendingRequests = []
@@ -206,13 +181,6 @@ logout model =
   , zone = model.zone
   , labelWidths = model.labelWidths
   }
-
-updateWithChecks msg model =
-  let
-    (m2,cmd2) = update msg model
-    (m3,cmd3) = chatConnectionUpdate m2
-  in
-    (m3,Cmd.batch[cmd3, cmd2])
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -391,7 +359,7 @@ update msg model =
               ( {m2 | autoHostStatus = AutoEnabled}
               , Cmd.batch
                 [ cmd2
-                , hostChannel m2.ircConnection name
+                --, hostChannel m2.ircConnection name
                 , Log.info ("picking " ++ name)
                 ])
           _ ->
@@ -492,11 +460,11 @@ update msg model =
       )
     UI (View.HostChannel target) ->
       ( model
-      , hostChannel model.ircConnection target
+      , Cmd.none --hostChannel model.ircConnection target
       )
     UI (View.RaidChannel target) ->
       ( model
-      , raidChannel model.ircConnection target
+      , Cmd.none --raidChannel model.ircConnection target
       )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
@@ -564,253 +532,6 @@ update msg model =
       , channelStatus = Unknown
       }
       |> persist
-    SocketEvent id (PortSocket.Error value) ->
-      (model, Log.error "websocket error" value)
-    SocketEvent id (PortSocket.Connecting url) ->
-      --let _ = Debug.log "websocket connecting" id in
-      ( { model | ircConnection = case model.ircConnection of
-          Connect _ timeout -> Connecting id timeout
-          Connecting _ timeout -> Connecting id timeout
-          _ -> Connecting id initialReconnectDelay
-        }
-      , currentConnectionId model.ircConnection
-          |> Maybe.map PortSocket.close
-          |> Maybe.withDefault Cmd.none
-      )
-    SocketEvent id (PortSocket.Open url) ->
-      --let _ = Debug.log "websocket open" id in
-      ( {model | ircConnection = Connected id}
-      , Cmd.none
-      )
-    SocketEvent id (PortSocket.Close url) ->
-      --let _ = Debug.log "websocket closed" id in
-      case model.ircConnection of
-        Disconnected ->
-          (model, Cmd.none)
-        Rejected ->
-          (model, Cmd.none)
-        Connect _ timeout ->
-          (model, Cmd.none)
-        Connecting wasId timeout ->
-          if id == wasId then
-            ( { model
-              | ircConnection = Connect twitchIrc timeout
-              }
-              , Cmd.none
-            )
-          else
-            (model, Cmd.none)
-        Connected wasId ->
-          closeIfCurrent model wasId id
-        LoggingIn wasId _ ->
-          closeIfCurrent model wasId id
-        LoggedIn wasId _ ->
-          closeIfCurrent model wasId id
-        Joining wasId _ _ ->
-          closeIfCurrent model wasId id
-        Joined wasId _ _ ->
-          closeIfCurrent model wasId id
-        Parting wasId _ _ ->
-          closeIfCurrent model wasId id
-    SocketEvent id (PortSocket.Message message) ->
-      --let _ = Debug.log "websocket message" message in
-      case (Parser.run Chat.message message) of
-        Ok lines ->
-          List.foldl (reduce (chatResponse id message)) (model, Cmd.none) lines
-        Err err ->
-          (model, parseError message err)
-    Reconnect time ->
-      case model.ircConnection of
-        Connect url timeout ->
-          ( {model | ircConnection = Connect url (timeout*2)}
-          , Cmd.batch
-            [ PortSocket.connect url
-            , Log.info "reconnect"
-            ]
-          )
-        Connecting id timeout ->
-          ( {model | ircConnection = Connect twitchIrc (timeout*2)}
-          , Cmd.batch
-            [ PortSocket.close id
-            , PortSocket.connect twitchIrc
-            ]
-          )
-        _ ->
-          (model, Cmd.none)
-
-chatResponse : PortSocket.Id -> String -> Chat.Line -> Model -> (Model, Cmd Msg)
-chatResponse id message line model =
-  reduce (chatCommandResponse id message) line (model, collectUnknownTags message line)
-
-collectUnknownTags : String -> Chat.Line -> Cmd Msg
-collectUnknownTags message line =
-  line.tags
-    |> List.filterMap (\tag -> case tag of 
-      Chat.UnknownTag key value ->
-        Cmd.batch
-          [ ("unknown tag" ++ key ++ "=" ++ value)
-            |> Log.info
-          , Log.info message
-          ]
-          |> Just
-      _ -> Nothing
-    )
-    |> Cmd.batch
-
-chatCommandResponse : PortSocket.Id -> String -> Chat.Line -> Model -> (Model, Cmd Msg)
-chatCommandResponse id message line model =
-  case line.command of
-    "CAP" -> (model, Cmd.none)
-    "HOSTTARGET" ->
-      let log = ("hosttarget" :: line.params) |> String.join " " |> Log.info in
-      case line.params of
-        [_, target] ->
-          case String.split " " target of
-            "-"::_ ->
-              ( { model
-                | channelStatus = Unknown
-                }
-                |> pollAutoChannel
-              , Cmd.batch
-                [ (Time.now |> Task.perform AudioStart)
-                , log
-                ]
-              )
-            channel::_ ->
-              (model |> appendUnauthenticatedRequests [fetchHostingUser channel]
-              , Cmd.none)
-            _ -> (model, log)
-        _ -> (model, log)
-    "JOIN" ->
-      let
-          user = line.prefix
-            |> Maybe.map Chat.extractUserFromPrefix
-            |> Maybe.withDefault (Err [])
-            |> Result.withDefault "unknown"
-          channel = line.params
-            |> List.head
-            |> Maybe.withDefault "unknown"
-      in
-      ( { model
-        | ircConnection = Joined id user channel
-        , autoHostStatus = AutoDisabled
-        }
-      , Cmd.none
-      )
-    "NOTICE" ->
-      case line.params of
-        ["*", "Improperly formatted auth"] ->
-          ( {model | ircConnection = Rejected}
-          , Cmd.batch
-            [ PortSocket.close id
-            , Log.error "Authentication failed" (encodeLine line)
-            ]
-          )
-        _ -> 
-          (model, Cmd.none)
-    "PART" ->
-      let
-          user = line.prefix
-            |> Maybe.map Chat.extractUserFromPrefix
-            |> Maybe.withDefault (Err [])
-            |> Result.withDefault "unknown"
-      in
-      ( { model
-        | ircConnection = LoggedIn id user
-        , channelStatus = case model.channelStatus of
-          Hosting _ -> Offline
-          _ -> model.channelStatus
-        }
-      , Cmd.none)
-    "PING" -> 
-      --let _ = Debug.log "PONG" "" in
-      (model, PortSocket.send id ("PONG :tmi.twitch.tv"))
-    "PRIVMSG" -> (model, Cmd.none)
-    "ROOMSTATE" -> (model, Cmd.none)
-    "USERNOTICE" ->
-      --let _ = Debug.log "usernotice" line in
-      (model, Cmd.none)
-    "USERSTATE" ->
-      --let _ = Debug.log "userstate" line in
-      (model, Cmd.none)
-    "001" -> (model, Cmd.none)
-    "002" -> (model, Cmd.none)
-    "003" -> (model, Cmd.none)
-    "004" -> (model, Cmd.none)
-    "353" -> (model, Cmd.none) --names list
-    "366" -> -- end of names list
-      ( model
-      , line.params
-        |> List.drop 1
-        |> List.head
-        |> Maybe.withDefault "unknown"
-        |> (\s -> "joined room " ++ s)
-        |> Log.info
-      )
-    "375" -> (model, Cmd.none)
-    "372" -> (model, Cmd.none)
-    "376" -> 
-      --let _ = Debug.log "logged in" "" in
-      ( {model | ircConnection = LoggedIn id (line.params |> List.head |> Maybe.withDefault "unknown")}
-      , Cmd.batch
-        [ PortSocket.send id "CAP REQ :twitch.tv/tags"
-        , PortSocket.send id "CAP REQ :twitch.tv/commands"
-        ]
-      )
-    _ ->
-      (model, unknownMessage message line)
-
-chatConnectionUpdate : Model -> (Model, Cmd Msg)
-chatConnectionUpdate model =
-  let
-    autoChannel = case model.autoChannel of
-      HostOn channel -> Just channel
-      HostOnLogin -> Nothing
-      HostNothing -> Nothing
-  in
-  case (model.ircConnection, autoChannel) of
-    (Disconnected, Just _) ->
-      ( {model | ircConnection = Connect twitchIrc initialReconnectDelay}
-      , Cmd.none
-      )
-    (Connected id, Just _) ->
-      Maybe.map2 (\auth login ->
-          ({model | ircConnection = LoggingIn id login}
-          , Cmd.batch
-            -- order is reversed, because elm feels like it
-            [ PortSocket.send id ("NICK " ++ login)
-            , PortSocket.send id ("PASS oauth:" ++ auth)
-            ]
-          )
-        )
-        model.auth
-        model.authLogin
-      |> Maybe.withDefault
-        (model, Cmd.none)
-    (LoggedIn id login, Just target) ->
-      ( {model | ircConnection = Joining id login target}
-      , PortSocket.send id ("JOIN #" ++ target)
-      )
-    (Joining id login channel, Nothing) ->
-      ( {model | ircConnection = Disconnected}
-      , PortSocket.close id
-      )
-    (Joined id login channel, Nothing) ->
-      ( {model | ircConnection = Disconnected}
-      , PortSocket.close id
-      )
-    (Joined id login channel, Just target) ->
-      if channel /= ("#"++target) then
-        ( {model | ircConnection = Parting id login channel}
-        , PortSocket.send id ("part " ++ channel) )
-      else
-        (model, Cmd.none)
-    (Parting id login channel, Nothing) ->
-      ( {model | ircConnection = Disconnected}
-      , PortSocket.close id
-      )
-    (_, _) ->
-      (model, Cmd.none)
 
 reduce : (msg -> Model -> (Model, Cmd Msg)) -> msg -> (Model, Cmd Msg) -> (Model, Cmd Msg)
 reduce step msg (model, cmd) =
@@ -818,59 +539,6 @@ reduce step msg (model, cmd) =
     (m2, c2) = step msg model
   in
     (m2, Cmd.batch [cmd, c2])
-
-hostChannel : ConnectionStatus -> String -> Cmd Msg
-hostChannel ircConnection target =
-  case ircConnection of
-    Joined id user channel ->
-      PortSocket.send id ("PRIVMSG " ++ channel ++ " :/host " ++ target)
-    _ -> Cmd.none
-
-raidChannel : ConnectionStatus -> String -> Cmd Msg
-raidChannel ircConnection target =
-  case ircConnection of
-    Joined id user channel ->
-      PortSocket.send id ("PRIVMSG " ++ channel ++ " :/raid " ++ target)
-    _ -> Cmd.none
-
-closeIfCurrent : Model -> PortSocket.Id -> PortSocket.Id -> (Model, Cmd Msg)
-closeIfCurrent model wasId id =
-  if id == wasId then
-    ( { model
-      | ircConnection = Connect twitchIrc initialReconnectDelay
-      , autoHostStatus = Incapable
-      , channelStatus = case model.channelStatus of
-        Hosting _ -> Offline
-        _ -> model.channelStatus
-      }
-      , Cmd.none
-    )
-  else
-    (model, Cmd.none)
-
-currentConnectionId : ConnectionStatus -> Maybe PortSocket.Id
-currentConnectionId connection =
-  case connection of
-    Disconnected ->
-      Nothing
-    Rejected ->
-      Nothing
-    Connect _ _ ->
-      Nothing
-    Connecting id _ ->
-      Just id
-    Connected id ->
-      Just id
-    LoggingIn id _ ->
-      Just id
-    LoggedIn id _ ->
-      Just id
-    Joining id _ _ ->
-      Just id
-    Joined id _ _ ->
-      Just id
-    Parting id _ _ ->
-      Just id
 
 toUserDict : List User -> Dict String User
 toUserDict =
@@ -1001,11 +669,6 @@ subscriptions model =
         Sub.none
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , MeasureText.textSize TextSize
-    , PortSocket.receive SocketEvent
-    , case model.ircConnection of
-        Connect _ timeout-> Time.every timeout Reconnect
-        Connecting _ timeout-> Time.every timeout Reconnect
-        _ -> Sub.none
     , model.audioNotice
       |> Maybe.map (\_ -> Time.every audioNoticeLength AudioEnd)
       |> Maybe.withDefault Sub.none
@@ -1299,17 +962,3 @@ extractHashArgument key location =
   { location | path = "", query = location.fragment }
     |> Url.Parser.parse (Url.Parser.query (Url.Parser.Query.string key))
     |> Maybe.withDefault Nothing
-
-parseError message error = Log.error message (Encode.string (Chat.deadEndsToString error))
-
-unknownMessage : String -> Chat.Line -> Cmd Msg
-unknownMessage message line =
-  Log.debug ("unknown: " ++ message) (encodeLine line)
-
-encodeLine : Chat.Line -> Encode.Value
-encodeLine line =
-  Encode.object
-    [ ("prefix", line.prefix |> Maybe.map Encode.string |> Maybe.withDefault Encode.null)
-    , ("command", Encode.string line.command)
-    , ("params", Encode.list Encode.string line.params)
-    ]
