@@ -1,5 +1,3 @@
-- chat usage?
-- no hosting
 - content classification labels apis
 - mature game in igdb api
 - mature flag now in streams

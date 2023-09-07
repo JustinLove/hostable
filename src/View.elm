@@ -1,4 +1,4 @@
-module View exposing (Msg(..), AppMode(..), ChannelStatus(..), AutoHostStatus(..), HostOnChannel(..), view, document, sortedStreams)
+module View exposing (Msg(..), AppMode(..), view, document, sortedStreams)
 
 import Decode exposing (Stream)
 import Twitch.Template exposing (imageTemplateUrl)
@@ -32,8 +32,6 @@ type Msg
   | AddChannel String
   | RemoveChannel String
   | HostClicked String String
-  | HostChannel String
-  | RaidChannel String
   | SelectComment String String
   | RemoveComment String String
   | AddComment String
@@ -43,9 +41,6 @@ type Msg
   | SelectTag String
   | UpdateTagScore String Float
   | Navigate AppMode
-  | AutoHost Bool
-  | HostOnChannel String
-  | RemoveHostTracking
 
 type AppMode
   = LiveStreams
@@ -53,18 +48,6 @@ type AppMode
   | GameScores
   | TagScores
   | Settings
-
-type ChannelStatus
-  = Unknown
-  | Offline
-  | Hosting String
-  | Live
-
-type AutoHostStatus
-  = Incapable
-  | AutoDisabled
-  | AutoEnabled
-  | Pending
 
 type HostOnChannel
   = HostOn String
@@ -100,7 +83,6 @@ headerView model =
     [ div [ class "refresh" ] 
       [ button [onClick Refresh, authEnabled model ] [ text "Refresh" ]
       , text " "
-      , autoHostEnabledView model
       ]
     , let
         requests = ((List.length model.pendingRequests) + model.outstandingRequests)
@@ -163,31 +145,6 @@ navigationItem current target itemId title =
       ]
     ]
 
-autoHostEnabledView model =
-  div [ class "autohost-controls" ]
-    [ input
-      [ type_ "checkbox"
-      , Html.Attributes.name "autohost"
-      , id "autohost"
-      , value "autohost"
-      , onCheck AutoHost
-      , checked (case model.autoHostStatus of
-        Incapable -> False
-        AutoDisabled -> False
-        AutoEnabled -> True
-        Pending -> True
-      )
-      , disabled (model.autoHostStatus == Incapable)
-      ] []
-    , label [ for "autohost" ]
-      [ text ("Auto-Host " ++ (case model.autoChannel of
-          HostOn name -> name
-          HostOnLogin -> "?"
-          HostNothing -> "?"
-        ))
-      ]
-    ]
-
 liveStreamsOrLoginView model =
   case model.auth of
     Just _ -> liveStreamsView model
@@ -210,7 +167,6 @@ streamView model stream =
   in
   li [ classList
        [ ("stream", True)
-       , ("hosted", Hosting stream.userId == model.channelStatus)
        ]
      ]
     [ div [ class "graphics" ]
@@ -240,19 +196,6 @@ streamView model stream =
             , readonly True
             , value name
             ] []
-          , case model.autoHostStatus of
-            Incapable ->
-              text ""
-            _ ->
-              case model.channelStatus of
-                Live ->
-                  button
-                    [ Html.Events.onClick (RaidChannel name)
-                    ] [ text "raid" ]
-                _ ->
-                  button
-                    [ Html.Events.onClick (HostChannel name)
-                    ] [ text "host" ]
           , if model.selectedUser == Just stream.userId then
               button [ onClick (RemoveChannel stream.userId) ] [ text "X" ]
             else
@@ -361,7 +304,6 @@ channelView model user =
   in
   li [ classList
        [ ("channel", True)
-       , ("hosted", Hosting user.id == model.channelStatus)
        ]
      ]
     [ div [ class "info" ]
@@ -516,25 +458,6 @@ settingsView model =
                 ] []
             Nothing ->
               text ""
-          ]
-    , if model.auth == Nothing then
-        text ""
-      else
-        li [ class "host-on-channel" ]
-          [ label [ for "hostonchannel" ] [ text "Host On Channel" ]
-          , text " "
-          , input
-            [ type_ "text"
-            , id "hostonchannel"
-            , name "hostonchannel"
-            , value (case model.autoChannel of
-                HostOn name -> name
-                HostOnLogin -> ""
-                HostNothing -> ""
-              )
-            , on "change" <| targetValue Json.Decode.string HostOnChannel
-            ] []
-          , button [onClick RemoveHostTracking] [ text "X" ]
           ]
     ]
 

@@ -12,7 +12,7 @@ import Twitch.Helix.Request as Helix
 import TwitchId
 import SelectCopy
 import ScheduleGraph exposing (Event)
-import View exposing (AppMode(..), ChannelStatus(..), AutoHostStatus(..), HostOnChannel(..))
+import View exposing (AppMode(..))
 
 import Browser
 import Browser.Dom as Dom
@@ -43,18 +43,13 @@ type Msg
   | Imported (Result Decode.Error Export)
   | HttpError String Http.Error
   | Self (List String)
-  | Channel (List String)
   | Users (List User)
   | UserUpdate (List User)
   | UnknownUsers (List User)
-  | HostingUser (List User)
   | Streams (List Stream)
-  | ChannelStream (List Stream)
   | Games (List Game)
   | Videos UserId (List Event)
   | Followers String Int
-  | NextHost Posix
-  | LivePoll Posix
   | AudioStart Posix
   | AudioEnd Posix
   | Response Msg
@@ -74,13 +69,10 @@ type alias Model =
   , userPreviewVersion : Dict String Int
   , auth : Maybe String
   , authLogin : Maybe String
-  , autoChannel : HostOnChannel
   , pendingUsers : List String
   , pendingUserStreams : List String
   , pendingRequests : List (Cmd Msg)
   , outstandingRequests : Int
-  , channelStatus : ChannelStatus
-  , autoHostStatus : AutoHostStatus
   , appMode : AppMode
   , selectedUser : Maybe String
   , selectedComment : Maybe (String, String)
@@ -118,15 +110,10 @@ init href =
     , userPreviewVersion = Dict.empty
     , auth = auth
     , authLogin = Nothing
-    , autoChannel = case auth of
-      Just _ -> HostOnLogin
-      Nothing -> HostNothing
     , pendingUsers = []
     , pendingUserStreams = []
     , pendingRequests = []
     , outstandingRequests = 0
-    , channelStatus = Unknown
-    , autoHostStatus = Incapable
     , appMode = LiveStreams
     , selectedUser = Nothing
     , selectedComment = Nothing
@@ -161,13 +148,10 @@ logout model =
   , userPreviewVersion = model.userPreviewVersion
   , auth = Nothing
   , authLogin = Nothing
-  , autoChannel = HostNothing
   , pendingUsers = []
   , pendingUserStreams = []
   , pendingRequests = []
   , outstandingRequests = model.outstandingRequests
-  , channelStatus = Unknown
-  , autoHostStatus = Incapable
   , appMode = model.appMode
   , selectedUser = Nothing
   , selectedComment = Nothing
@@ -197,9 +181,6 @@ update msg model =
           , auth = case state.auth of
             Just _ -> state.auth
             Nothing -> model.auth
-          , autoChannel = case state.autoChannel of
-            Just channel -> HostOn channel
-            Nothing -> model.autoChannel
           , pendingUserStreams = List.map .id state.users
           }
         Nothing ->
@@ -236,24 +217,10 @@ update msg model =
       ( { model
         | authLogin = Just login
         }
-        |> appendUnauthenticatedRequests (case model.autoChannel of
-          HostOnLogin -> [ fetchChannel login ]
-          HostOn autoChannel-> [ fetchChannelStream autoChannel ]
-          HostNothing -> []
-        )
       , Cmd.none
       )
     Self _ ->
       (model, Log.warn "self did not find user")
-    Channel (login::_) ->
-      { model
-      | autoChannel = HostOn login
-      , channelStatus = Unknown
-      }
-      |> appendUnauthenticatedRequests [ fetchChannelStream login ]
-      |> persist
-    Channel _ ->
-      (model, Log.warn "channel did not find user")
     Users users ->
       { model
       | users = addUsers (List.map persistUser users) model.users
@@ -273,14 +240,6 @@ update msg model =
         | users = addUsers users model.users
         }
       , Cmd.none)
-    HostingUser (user::_) ->
-      ( { model
-        | channelStatus = Hosting user.id
-        }
-      , Cmd.none
-      )
-    HostingUser _ ->
-      (model, Log.warn "hosting did not find user")
     Streams streams ->
       ( fetchNextGameBatch requestLimit
         <| fetchNextUserStreamBatch requestLimit
@@ -293,22 +252,6 @@ update msg model =
         , users = List.foldl (\s users ->
             Dict.update s.userId (Maybe.map (\user -> {user | displayName = s.userName})) users
           ) model.users streams
-        }
-      , Cmd.none)
-    ChannelStream (stream::_) ->
-      ( { model
-        | channelStatus = Live
-        , autoHostStatus = case model.autoHostStatus of
-          Pending -> AutoEnabled
-          _ -> model.autoHostStatus
-        }
-      , Cmd.none)
-    ChannelStream [] ->
-      ( { model | channelStatus = case model.channelStatus of
-          Unknown -> Offline
-          Offline -> Offline
-          Hosting _ -> model.channelStatus
-          Live -> Offline
         }
       , Cmd.none)
     Games news ->
@@ -330,46 +273,8 @@ update msg model =
           model.followers
       }
         |> persist
-    NextHost time ->
-      ( {model | autoHostStatus = Pending, time = time}
-        |> pollAutoChannel
-        |> refreshUserStreams
-        |> fetchNextUserStreamBatch requestLimit
-      , Cmd.none
-      )
-    LivePoll time ->
-      ( {model | time = time}
-        |> pollAutoChannel
-      , Cmd.none
-      )
     Response subMsg ->
-      let
-        (m2, cmd2) = update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
-      in
-      if m2.channelStatus == Offline
-      && m2.autoHostStatus == Pending
-      && m2.outstandingRequests == 0
-      && List.isEmpty m2.pendingRequests then
-        case View.sortedStreams m2 of
-          top :: _ ->
-            let
-              muser = Dict.get top.userId m2.users
-              name = muser |> Maybe.map .displayName |> Maybe.withDefault "unknown"
-            in
-              ( {m2 | autoHostStatus = AutoEnabled}
-              , Cmd.batch
-                [ cmd2
-                --, hostChannel m2.ircConnection name
-                , Log.info ("picking " ++ name)
-                ])
-          _ ->
-            ( {m2 | autoHostStatus = AutoEnabled}
-            , Cmd.batch
-              [ cmd2
-              , Log.info "no streams"
-              ])
-      else
-        (m2, cmd2)
+      update subMsg { model | outstandingRequests = model.outstandingRequests - 1}
     AudioStart time ->
       ({model | audioNotice = Just time}, Cmd.none)
     AudioEnd _ ->
@@ -458,14 +363,6 @@ update msg model =
               ]
       , SelectCopy.selectCopy controlId
       )
-    UI (View.HostChannel target) ->
-      ( model
-      , Cmd.none --hostChannel model.ircConnection target
-      )
-    UI (View.RaidChannel target) ->
-      ( model
-      , Cmd.none --raidChannel model.ircConnection target
-      )
     UI (View.SelectComment userId comment) ->
       ( {model | selectedComment = Just (userId, comment)}, Cmd.none)
     UI (View.RemoveComment userId comment) ->
@@ -508,30 +405,6 @@ update msg model =
       } |> persist
     UI (View.Navigate mode) ->
       ( {model | appMode = mode}, Cmd.none)
-    UI (View.AutoHost enabled) ->
-      ( {model | autoHostStatus = case (model.autoHostStatus, enabled) of
-        (Incapable, _) -> Incapable
-        (AutoDisabled, True) -> AutoEnabled
-        (AutoDisabled, False) -> AutoDisabled
-        (AutoEnabled, False) -> AutoDisabled
-        (AutoEnabled, True) -> AutoEnabled
-        (Pending, False) -> AutoDisabled
-        (Pending, True) -> Pending
-      }
-      , Cmd.none
-      )
-    UI (View.HostOnChannel name) ->
-      let lower = String.toLower name in
-      ( model
-        |> appendUnauthenticatedRequests [ fetchChannel lower ]
-      , Cmd.none
-      )
-    UI View.RemoveHostTracking ->
-      { model
-      | autoChannel = HostNothing
-      , channelStatus = Unknown
-      }
-      |> persist
 
 reduce : (msg -> Model -> (Model, Cmd Msg)) -> msg -> (Model, Cmd Msg) -> (Model, Cmd Msg)
 reduce step msg (model, cmd) =
@@ -627,11 +500,7 @@ saveState model =
       model.events
       model.followers
       model.auth
-      (case model.autoChannel of
-        HostOn channel -> Just channel
-        HostOnLogin -> Nothing
-        HostNothing -> Nothing
-      )
+      Nothing -- autoChannel
     |> Persist.Encode.persist
     |> LocalStorage.saveJson
 
@@ -655,18 +524,6 @@ subscriptions model =
             Time.every (1000*60*1.05/authenticatedRequestRate) NextRequest
           Nothing ->
             Time.every (1000*60*1.05/unauthenticatedRequestRate) NextRequest
-    , if model.autoHostStatus == AutoEnabled then
-        case model.channelStatus of
-          Unknown ->
-            Time.every autoHostDelay NextHost
-          Offline ->
-            Time.every autoHostDelay NextHost
-          Hosting _ ->
-            Sub.none
-          Live ->
-            Time.every autoHostDelay LivePoll
-      else
-        Sub.none
     , LocalStorage.loadedJson Persist.Decode.persist Loaded
     , MeasureText.textSize TextSize
     , model.audioNotice
@@ -711,15 +568,6 @@ fetchNextUserStreamBatch batch model =
   | pendingUserStreams = List.drop batch model.pendingUserStreams
   } |> appendUnauthenticatedRequests
       [fetchStreamsByUserIds <| List.take batch model.pendingUserStreams]
-
-pollAutoChannel : Model -> Model
-pollAutoChannel model =
-  --let _ = Debug.log "poll" model.autoChannel in
-  model
-    |> appendUnauthenticatedRequests (case model.autoChannel of
-      HostOn autoChannel -> [ fetchChannelStream autoChannel ]
-      _ -> []
-    )
 
 refreshUserStreams : Model -> Model
 refreshUserStreams model =
@@ -813,16 +661,6 @@ fetchUsersByLogin users auth =
       , url = (fetchUsersByLoginUrl users)
       }
 
-fetchChannel : String -> String -> Cmd Msg
-fetchChannel user auth =
-  Helix.send <|
-    { clientId = TwitchId.clientId
-    , auth = auth
-    , decoder = Decode.logins
-    , tagger = httpResponse "Channel" Channel
-    , url = (fetchUsersByLoginUrl [user])
-    }
-
 fetchUsersByIdUrl : List String -> String
 fetchUsersByIdUrl ids =
   "https://api.twitch.tv/helix/users?id=" ++ (String.join "&id=" ids)
@@ -852,16 +690,6 @@ fetchUnknownUsersById ids auth =
       , tagger = httpResponse "UnknownUsers" UnknownUsers
       , url = (fetchUsersByIdUrl ids)
       }
-
-fetchHostingUser : String -> String -> Cmd Msg
-fetchHostingUser login auth =
-  Helix.send <|
-    { clientId = TwitchId.clientId
-    , auth = auth
-    , decoder = Decode.users
-    , tagger = httpResponse "HostingUser" HostingUser
-    , url = (fetchUsersByLoginUrl [login])
-    }
 
 fetchSelfUrl : String
 fetchSelfUrl =
@@ -893,20 +721,6 @@ fetchStreamsByUserIds userIds auth =
       , tagger = httpResponse "Streams" Streams
       , url = (fetchStreamsByUserIdsUrl userIds)
       }
-
-fetchChannelStreamUrl : String -> String
-fetchChannelStreamUrl login =
-  "https://api.twitch.tv/helix/streams?user_login=" ++ login
-
-fetchChannelStream : String -> String -> Cmd Msg
-fetchChannelStream login auth =
-  Helix.send <|
-    { clientId = TwitchId.clientId
-    , auth = auth
-    , decoder = Decode.streams
-    , tagger = httpResponse "ChannelStream" ChannelStream
-    , url = (fetchChannelStreamUrl login)
-    }
 
 fetchGamesUrl : List String -> String
 fetchGamesUrl gameIds =
